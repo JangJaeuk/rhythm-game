@@ -16,18 +16,19 @@ export function createNote(
 
 export function createNotes(): Note[] {
   return [
-    createNote(0, 1000),
-    createNote(1, 1500),
-    createNote(2, 2000),
-    createNote(3, 2500),
-    createNote(0, 3000, 2000),
-    createNote(3, 3500, 2000),
-    createNote(1, 4000),
-    createNote(0, 6000),
-    createNote(2, 6500),
-    createNote(2, 7000),
-    createNote(2, 7500),
-    createNote(2, 8000),
+    createNote(0, 3000),
+    createNote(1, 3500),
+    createNote(2, 4000),
+    createNote(3, 4500),
+    createNote(0, 5000, 2000),
+    createNote(3, 5500, 2000),
+    createNote(1, 6000),
+    createNote(0, 8000),
     createNote(2, 8500),
+    createNote(2, 8000),
+    createNote(2, 9500),
+    createNote(1, 10000),
+    createNote(2, 10000),
+    createNote(2, 10500),
   ];
 }
