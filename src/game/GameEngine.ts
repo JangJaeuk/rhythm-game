@@ -28,6 +28,7 @@ import {
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private audio: HTMLAudioElement | null;
   private notes: Note[] = [];
   private activeNotes: Note[] = [];
   private isRunning: boolean = false;
@@ -36,7 +37,6 @@ export class GameEngine {
   private lastTimestamp: number = 0;
   private totalPauseTime: number = 0;
   private pauseStartTime: number = 0;
-  private score: number = 0;
   private combo: number = 0;
   private currentJudgment: Judgment | null = null;
   private judgmentDisplayTime: number = 0;
@@ -52,12 +52,40 @@ export class GameEngine {
     .map(() => ({
       active: false,
     }));
+  private onGameOver: () => void;
+  private dataArray?: Uint8Array;
 
-  constructor(canvas: HTMLCanvasElement) {
+  private static audioContext?: AudioContext;
+  private static analyser?: AnalyserNode;
+  private static audioSource?: MediaElementAudioSourceNode;
+  private static isAudioInitialized: boolean = false;
+  private static connectedAudioElement?: HTMLAudioElement;
+
+  score: number = 0;
+  maxCombo: number = 0;
+  perfectCount: number = 0;
+  goodCount: number = 0;
+  normalCount: number = 0;
+  missCount: number = 0;
+
+  constructor(
+    canvas: HTMLCanvasElement,
+    audio: HTMLAudioElement | null,
+    onGameOver: () => void
+  ) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Failed to get 2D context");
     this.ctx = ctx;
+    this.audio = audio;
+    this.audio?.addEventListener("ended", () => {
+      this.handleGameOver();
+    });
+    this.onGameOver = onGameOver;
+
+    if (audio) {
+      this.initializeAudio(audio);
+    }
 
     this.setupKeyboardListeners();
   }
@@ -95,6 +123,11 @@ export class GameEngine {
     this.isRunning = true;
     this.startTime = performance.now();
     this.lastTimestamp = this.startTime;
+
+    if (GameEngine.audioContext?.state === "suspended") {
+      GameEngine.audioContext.resume();
+    }
+
     requestAnimationFrame(this.update.bind(this));
   }
 
@@ -122,9 +155,14 @@ export class GameEngine {
     this.activeNotes = [];
     this.score = 0;
     this.combo = 0;
+    this.maxCombo = 0;
     this.currentJudgment = null;
     this.totalPauseTime = 0;
     this.pauseStartTime = 0;
+    this.perfectCount = 0;
+    this.goodCount = 0;
+    this.normalCount = 0;
+    this.missCount = 0;
   }
 
   private handleKeyPress(lane: number) {
@@ -182,7 +220,7 @@ export class GameEngine {
         note.lane === lane &&
         note.type === NoteType.LONG &&
         note.isHeld &&
-        note.longNoteState === LongNoteState.HOLDING,
+        note.longNoteState === LongNoteState.HOLDING
     );
 
     this.deactivateLaneBackgroundEffect(lane);
@@ -243,18 +281,29 @@ export class GameEngine {
         const lastUpdate = this.lastLongNoteUpdate[note.lane] || 0;
         const noteEndTime = note.timing + (note.duration ?? 0);
 
-        // 긴 노트를 놓기 전 범위 까지 콤보 증가
-        if (
-          currentTime - lastUpdate >= INTERVAL_IN_LONG_NOTE_ACTIVE &&
-          currentTime >= note.timing &&
-          currentTime <=
-            noteEndTime - NORMAL_RANGE + SAFE_TIME_IN_LONG_NOTE_ACTIVE
-        ) {
-          this.registerPerfect();
-          this.lastLongNoteUpdate[note.lane] = currentTime;
+        // 마지막 업데이트 이후 경과한 간격 수 계산
+        const intervalsPassed = Math.floor(
+          (currentTime - lastUpdate) / INTERVAL_IN_LONG_NOTE_ACTIVE
+        );
+
+        // 경과한 각 간격을 반복 처리
+        for (let i = 0; i < intervalsPassed; i++) {
+          const intervalTime =
+            lastUpdate + (i + 1) * INTERVAL_IN_LONG_NOTE_ACTIVE;
+
+          // 간격 시간이 유효한 범위 내에 있는지 확인
+          if (
+            intervalTime >= note.timing &&
+            intervalTime <=
+              noteEndTime - NORMAL_RANGE + SAFE_TIME_IN_LONG_NOTE_ACTIVE
+          ) {
+            this.registerPerfect();
+            this.lastLongNoteUpdate[note.lane] = intervalTime;
+          }
         }
-        // 긴 노트를 놓는 타이밍이 지나도 누르고 있는 경우
-        else if (currentTime - TIME_CONSIDERING_PASSED > noteEndTime) {
+
+        // 노트가 끝난 후에도 누르고 있는 경우 처리
+        if (currentTime - TIME_CONSIDERING_PASSED > noteEndTime) {
           this.registerMiss();
           note.longNoteState = LongNoteState.MISSED;
           this.deactivateLaneEffect(note.lane);
@@ -264,22 +313,31 @@ export class GameEngine {
   }
 
   private registerPerfect() {
-    this.score += PERFECT_SCORE;
+    const comboMultiplier = this.getComboMultiplier();
+    this.score += PERFECT_SCORE * comboMultiplier;
     this.combo++;
+    this.perfectCount++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
     this.judgmentDisplayTime = performance.now();
   }
 
   private registerGood() {
-    this.score += GOOD_SCORE;
+    const comboMultiplier = this.getComboMultiplier();
+    this.score += GOOD_SCORE * comboMultiplier;
     this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.goodCount++;
     this.currentJudgment = { text: "GOOD", color: "#00ff00" };
     this.judgmentDisplayTime = performance.now();
   }
 
   private registerNormal() {
-    this.score += NORMAL_SCORE;
+    const comboMultiplier = this.getComboMultiplier();
+    this.score += NORMAL_SCORE * comboMultiplier;
     this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.normalCount++;
     this.currentJudgment = { text: "NORMAL", color: "#0088ff" };
     this.judgmentDisplayTime = performance.now();
   }
@@ -288,6 +346,7 @@ export class GameEngine {
     this.combo = 0;
     this.currentJudgment = { text: "MISS", color: "#ff0000" };
     this.judgmentDisplayTime = performance.now();
+    this.missCount++;
   }
 
   private activateLaneEffect(lane: number, isLongNote: boolean = false) {
@@ -326,6 +385,12 @@ export class GameEngine {
     });
   }
 
+  // 게임 종료 처리 함수 추가
+  private handleGameOver() {
+    this.isRunning = false;
+    this.onGameOver();
+  }
+
   // 판정 그리기
   private drawJudgment() {
     if (
@@ -339,8 +404,14 @@ export class GameEngine {
       this.ctx.font = "bold 24px Arial";
       this.ctx.textAlign = "center";
 
-      this.ctx.fillText(`COMBO`, this.canvas.width / 2, this.canvas.height / 3);
+      // Display "COMBO" text
+      this.ctx.fillText(
+        `COMBO`,
+        this.canvas.width / 2,
+        this.canvas.height / 3 - 60
+      );
 
+      // Display combo count
       this.ctx.fillStyle = "#fff";
       this.ctx.font = "bold 60px Arial";
       this.ctx.textAlign = "center";
@@ -348,8 +419,18 @@ export class GameEngine {
       this.ctx.fillText(
         `${this.combo}`,
         this.canvas.width / 2,
-        this.canvas.height / 3 + 50,
+        this.canvas.height / 3
       );
+
+      const comboMultiplier = this.getComboMultiplier();
+      if (comboMultiplier >= 1.2) {
+        this.ctx.font = "bold 24px Arial";
+        this.ctx.fillText(
+          `(x${comboMultiplier.toFixed(1)})`,
+          this.canvas.width / 2,
+          this.canvas.height / 3 + 40
+        );
+      }
 
       this.ctx.save();
       this.ctx.globalAlpha = alpha;
@@ -357,16 +438,72 @@ export class GameEngine {
       this.ctx.font = "bold 36px Arial";
       this.ctx.textAlign = "center";
 
+      // Display judgment text
       this.ctx.fillText(
         this.currentJudgment.text,
         this.canvas.width / 2,
-        this.canvas.height - this.canvas.height / 4,
+        this.canvas.height - this.canvas.height / 4
       );
 
       this.ctx.restore();
     }
   }
 
+  // 비주얼라이저 그리기 함수 추가
+  private drawVisualizer() {
+    if (!GameEngine.analyser || !this.dataArray) return;
+
+    try {
+      GameEngine.analyser.getByteFrequencyData(this.dataArray);
+
+      const centerX = this.canvas.width / 2;
+      const centerY = this.canvas.height / 2;
+      const radius = 40;
+
+      const barCount = 60;
+      const angleStep = (Math.PI * 1.5) / barCount;
+      const bandSize = Math.floor(this.dataArray.length / barCount);
+
+      this.ctx.save();
+
+      for (let i = 0; i < barCount; i++) {
+        const angle = i * angleStep - Math.PI / 4;
+
+        // 주파수 대역의 평균값 계산
+        const start = i * bandSize;
+        const end = start + bandSize;
+        const bandData = this.dataArray.slice(start, end);
+        const averageValue =
+          bandData.reduce((sum, value) => sum + value, 0) / bandData.length;
+
+        // 높이 계산
+        const minHeight = 10;
+        const maxHeight = 30;
+        const heightRange = maxHeight - minHeight;
+        const normalizedValue = Math.pow(averageValue / 255, 1.5);
+        const height = minHeight + heightRange * normalizedValue;
+
+        const innerX = centerX + Math.cos(angle) * radius;
+        const innerY = centerY + Math.sin(angle) * radius;
+        const outerX = centerX + Math.cos(angle) * (radius + height);
+        const outerY = centerY + Math.sin(angle) * (radius + height);
+
+        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        this.ctx.lineWidth = 2;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(innerX, innerY);
+        this.ctx.lineTo(outerX, outerY);
+        this.ctx.stroke();
+      }
+
+      this.ctx.restore();
+    } catch (error) {
+      console.error("Error in drawVisualizer:", error);
+    }
+  }
+
+  // 기존 draw 함수 수정
   private draw() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -389,7 +526,7 @@ export class GameEngine {
           i * LANE_WIDTH,
           0,
           LANE_WIDTH,
-          this.canvas.height,
+          this.canvas.height
         );
         gradient.addColorStop(0, "#000");
         gradient.addColorStop(1, LANE_COLORS[i]);
@@ -448,11 +585,17 @@ export class GameEngine {
           note.lane * LANE_WIDTH,
           y - height,
           LANE_WIDTH,
-          height,
+          height
         );
       }
     }
 
+    // 비주얼라이저 그리기 (콤보와 점수 사이에)
+    if (this.isRunning) {
+      this.drawVisualizer();
+    }
+
+    // 판정 표시 (기존 코드)
     this.drawJudgment();
 
     // 점수, 콤보 그리기
@@ -514,5 +657,50 @@ export class GameEngine {
 
     this.draw();
     requestAnimationFrame(this.update.bind(this));
+  }
+
+  // 오디오 초기화 함수 추가
+  private initializeAudio(audio: HTMLAudioElement) {
+    try {
+      // 이미 같은 오디오 요소가 연결되어 있다면 dataArray만 초기화
+      if (
+        GameEngine.connectedAudioElement === audio &&
+        GameEngine.isAudioInitialized
+      ) {
+        console.log("Reusing existing audio connection");
+        if (GameEngine.analyser) {
+          const bufferLength = GameEngine.analyser.frequencyBinCount;
+          this.dataArray = new Uint8Array(bufferLength);
+        }
+        return;
+      }
+
+      // 새로운 연결이 필요한 경우
+      if (!GameEngine.audioContext) {
+        GameEngine.audioContext = new AudioContext();
+        GameEngine.analyser = GameEngine.audioContext.createAnalyser();
+        GameEngine.audioSource =
+          GameEngine.audioContext.createMediaElementSource(audio);
+
+        GameEngine.audioSource.connect(GameEngine.analyser);
+        GameEngine.analyser.connect(GameEngine.audioContext.destination);
+
+        GameEngine.analyser.fftSize = 256;
+        const bufferLength = GameEngine.analyser.frequencyBinCount;
+        this.dataArray = new Uint8Array(bufferLength);
+
+        GameEngine.connectedAudioElement = audio;
+        GameEngine.isAudioInitialized = true;
+      }
+    } catch (error) {
+      console.error("Failed to initialize audio:", error);
+    }
+  }
+
+  private getComboMultiplier(): number {
+    if (this.combo >= 60) return 1.5;
+    else if (this.combo >= 40) return 1.3;
+    else if (this.combo >= 20) return 1.2;
+    else return 1.0;
   }
 }
