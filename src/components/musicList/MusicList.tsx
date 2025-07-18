@@ -3,13 +3,13 @@ import { MUSIC_LIST } from "../../game/constants";
 import { getFormattedDifficulty, getFormattedTime } from "../../game/utils";
 import { useGameScore } from "../../hooks/useGameScore";
 import { LeaderboardModal } from "../modals/LeaderboardModal";
-import s from "./musicListScreen.module.scss";
+import s from "./musicList.module.scss";
 
-interface MusicListScreenProps {
+interface MusicListProps {
   onSelectMusic: (musicId: string) => void;
 }
 
-export function MusicListScreen({ onSelectMusic }: MusicListScreenProps) {
+export function MusicList({ onSelectMusic }: MusicListProps) {
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const { getLeaderboard } = useGameScore();

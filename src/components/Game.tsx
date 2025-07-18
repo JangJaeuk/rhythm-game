@@ -8,7 +8,7 @@ import s from "./game.module.scss";
 import { BrowserCheckModal } from "./modals/BrowserCheckModal";
 import { GameOverModal } from "./modals/GameOverModal";
 import { PauseModal } from "./modals/PauseModal";
-import { MusicListScreen } from "./musicList/MusicListScreen";
+import { MusicList } from "./musicList/MusicList";
 
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,7 +90,7 @@ function Game() {
       />
 
       {gameState === "idle" && (
-        <MusicListScreen onSelectMusic={handleMusicSelect} />
+        <MusicList onSelectMusic={handleMusicSelect} />
       )}
 
       {gameState === "ended" && (
