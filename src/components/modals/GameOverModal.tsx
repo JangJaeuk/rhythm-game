@@ -1,3 +1,5 @@
+import s from './gameOverModal.module.scss';
+
 interface GameOverModalProps {
   score: number;
   maxCombo: number;
@@ -25,26 +27,26 @@ export function GameOverModal({
 }: GameOverModalProps) {
   return (
     <>
-      <div className="overlay-background" />
-      <div className="game-over-container">
-        <div className="game-over-text">Game Over</div>
-        <div className="game-over-description">Score: {score}</div>
-        <div className="game-over-description">Max Combo: {maxCombo}</div>
-        <div className="game-over-description">Perfect: {perfectCount}</div>
-        <div className="game-over-description">Good: {goodCount}</div>
-        <div className="game-over-description">Normal: {normalCount}</div>
-        <div className="game-over-description">Miss: {missCount}</div>
+      <div className={s.overlayBackground} />
+      <div className={s.container}>
+        <div className={s.text}>Game Over</div>
+        <div className={s.description}>Score: {score}</div>
+        <div className={s.description}>Max Combo: {maxCombo}</div>
+        <div className={s.description}>Perfect: {perfectCount}</div>
+        <div className={s.description}>Good: {goodCount}</div>
+        <div className={s.description}>Normal: {normalCount}</div>
+        <div className={s.description}>Miss: {missCount}</div>
         <input
           type="text"
-          className="input-field"
+          className={s.inputField}
           value={playerName}
           onChange={(e) => onPlayerNameChange(e.target.value)}
           placeholder="Enter your name"
         />
-        <button className="button" onClick={onSaveScore}>
+        <button className={s.button} onClick={onSaveScore}>
           Save Score
         </button>
-        <button className="button" onClick={onExit}>
+        <button className={s.button} onClick={onExit}>
           Return to Menu
         </button>
       </div>

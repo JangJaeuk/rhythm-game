@@ -1,3 +1,5 @@
+import s from './leaderboardModal.module.scss';
+
 interface Score {
   name: string;
   score: number;
@@ -10,7 +12,7 @@ interface LeaderboardModalProps {
 
 export function LeaderboardModal({ scores, onClose }: LeaderboardModalProps) {
   return (
-    <div className="leaderboard-container">
+    <div className={s.container}>
       <h2>Rankings</h2>
       <ul>
         {scores.map((entry: Score, index: number) => (
@@ -19,7 +21,7 @@ export function LeaderboardModal({ scores, onClose }: LeaderboardModalProps) {
           </li>
         ))}
       </ul>
-      <button className="button" onClick={onClose}>
+      <button className={s.button} onClick={onClose}>
         Back to Menu
       </button>
     </div>

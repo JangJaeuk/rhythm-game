@@ -4,7 +4,7 @@ import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
 import { useGameScore } from "../hooks/useGameScore";
-import "./game.css";
+import s from "./game.module.scss";
 import { BrowserCheckModal } from "./modals/BrowserCheckModal";
 import { GameOverModal } from "./modals/GameOverModal";
 import { PauseModal } from "./modals/PauseModal";
@@ -71,10 +71,10 @@ function Game() {
   }
 
   return (
-    <div className="game-container">
+    <div className={s.gameContainer}>
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className={s.gameCanvas}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
       />

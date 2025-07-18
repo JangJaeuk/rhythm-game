@@ -1,3 +1,5 @@
+import s from './pauseModal.module.scss';
+
 interface PauseModalProps {
   isActive: boolean;
   onResume: () => Promise<void>;
@@ -6,11 +8,11 @@ interface PauseModalProps {
 
 export function PauseModal({ isActive, onResume, onExit }: PauseModalProps) {
   return (
-    <div className={`pause-menu ${isActive ? "active" : ""}`}>
-      <button className="button" onClick={onResume}>
+    <div className={`${s.pauseMenu} ${isActive ? s.active : ""}`}>
+      <button className={s.button} onClick={onResume}>
         Resume
       </button>
-      <button className="button" onClick={onExit}>
+      <button className={s.button} onClick={onExit}>
         Exit Game
       </button>
     </div>
