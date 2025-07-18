@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH
-} from "../game/constants.ts";
-import { useGame } from "../hooks/useGame.ts";
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../game/constants";
+import { useBrowserCheck } from "../hooks/useBrowserCheck";
+import { useGame } from "../hooks/useGame";
+import { useGameAudio } from "../hooks/useGameAudio";
+import { useGameScore } from "../hooks/useGameScore";
 import "./game.css";
+import { BrowserCheckModal } from "./modals/BrowserCheckModal";
+import { GameOverModal } from "./modals/GameOverModal";
+import { PauseModal } from "./modals/PauseModal";
+import { StartScreenModal } from "./modals/StartScreenModal";
 
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-
-  const [playerName, setPlayerName] = useState("");
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
+  const isSupportedBrowser = useBrowserCheck();
+  const { playerName, setPlayerName, saveScore, getLeaderboard } = useGameScore();
   const {
     startGame,
     pauseGame,
@@ -27,63 +31,44 @@ function Game() {
     normalCount,
     missCount,
   } = useGame(canvasRef, audioRef);
+  const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } = useGameAudio(audioRef);
 
+  // 키보드 이벤트 핸들러
   useEffect(() => {
-    const audio = audioRef.current;
-
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === "Escape" && gameState === "playing") {
-        audio?.pause();
+        pauseAudio();
         pauseGame();
       } else if (e.key === "Escape" && gameState === "paused") {
-        await audio?.play();
+        await playAudio();
         resumeGame();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [gameState, pauseGame, resumeGame]);
+  const handleGameStart = async () => {
+    loadAudio();
+    await playAudio();
+    await waitForAudioStart();
+    startGame();
+  };
 
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.load();
-    }
-  }, []);
+  const handleResume = async () => {
+    await playAudio();
+    resumeGame();
+  };
 
-  const saveScore = () => {
-    if (playerName.trim() === "") return;
-
-    const newScore = { name: playerName, score };
-    const storedScores = JSON.parse(localStorage.getItem("scores") || "[]");
-    storedScores.push(newScore);
-    storedScores.sort((a: { score: number }, b: { score: number }) => b.score - a.score);
-    localStorage.setItem("scores", JSON.stringify(storedScores));
-    setPlayerName("");
+  const handleExit = () => {
+    resetAudio();
     exitGame();
   };
 
-  const renderLeaderboard = () => {
-    const scores = JSON.parse(localStorage.getItem("scores") || "[]");
-    return (
-      <div className="leaderboard-container">
-        <h2>Rankings</h2>
-        <ul>
-          {scores.map((entry: { name: string; score: number }, index: number) => (
-            <li key={index}>
-              {index + 1}. {entry.name}: {entry.score}
-            </li>
-          ))}
-        </ul>
-        <button className="button" onClick={() => setShowLeaderboard(false)}>
-          Back to Menu
-        </button>
-      </div>
-    );
-  };
+  if (!isSupportedBrowser) {
+    return <BrowserCheckModal />;
+  }
 
   return (
     <div className="game-container">
@@ -95,107 +80,37 @@ function Game() {
       />
 
       {gameState === "idle" && (
-        <>
-          <div className="overlay-background" />
-          <div className="start-container">
-            {showLeaderboard ? (
-              renderLeaderboard()
-            ) : (
-              <>
-                <div className="start-title">Rhythm Game</div>
-                <div className="start-subtitle">Press Start to Play</div>
-                <button
-                  className="button"
-                  onClick={async () => {
-                    if (audioRef.current) {
-                      audioRef.current.load();
-                      await audioRef.current?.play();
-                      const waitForAudioStart = (): Promise<void> => {
-                        return new Promise((resolve) => {
-                          const check = () => {
-                            const currentTime = audioRef.current?.currentTime ?? 0;
-                            if (currentTime >= 0.01) {
-                              resolve();
-                            } else {
-                              requestAnimationFrame(check);
-                            }
-                          };
-                          check();
-                        });
-                      };
-                      await waitForAudioStart();
-                      startGame();
-                    }
-                  }}
-                >
-                  Start Game
-                </button>
-                <button
-                  className="button"
-                  onClick={() => setShowLeaderboard(true)}
-                >
-                  View Rankings
-                </button>
-              </>
-            )}
-          </div>
-        </>
+        <StartScreenModal
+          showLeaderboard={showLeaderboard}
+          scores={getLeaderboard()}
+          onStartGame={handleGameStart}
+          onShowLeaderboard={() => setShowLeaderboard(true)}
+          onHideLeaderboard={() => setShowLeaderboard(false)}
+        />
       )}
 
       {gameState === "ended" && (
-        <>
-          <div className="overlay-background" />
-          <div className="game-over-container">
-            <div className="game-over-text">Game Over</div>
-            <div className="game-over-description">Score: {score}</div>
-            <div className="game-over-description">Max Combo: {maxCombo}</div>
-            <div className="game-over-description">Perfect: {perfectCount}</div>
-            <div className="game-over-description">Good: {goodCount}</div>
-            <div className="game-over-description">Normal: {normalCount}</div>
-            <div className="game-over-description">Miss: {missCount}</div>
-            <input
-              type="text"
-              className="input-field"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Enter your name"
-            />
-            <button className="button" onClick={saveScore}>
-              Save Score
-            </button>
-            <button className="button" onClick={() => exitGame()}>
-              Return to Menu
-            </button>
-          </div>
-        </>
+        <GameOverModal
+          score={score}
+          maxCombo={maxCombo}
+          perfectCount={perfectCount}
+          goodCount={goodCount}
+          normalCount={normalCount}
+          missCount={missCount}
+          playerName={playerName}
+          onPlayerNameChange={setPlayerName}
+          onSaveScore={() => saveScore(score, exitGame)}
+          onExit={exitGame}
+        />
       )}
 
-      <div className={`pause-menu ${isPaused ? "active" : ""}`}>
-        <button
-          className="button"
-          onClick={async () => {
-            if (audioRef.current) {
-              await audioRef.current?.play();
-              resumeGame();
-            }
-          }}
-        >
-          Resume
-        </button>
-        <button
-          className="button"
-          onClick={() => {
-            if (audioRef.current) {
-              audioRef.current.pause();
-              audioRef.current.currentTime = 0;
-            }
-            exitGame();
-          }}
-        >
-          Exit Game
-        </button>
-      </div>
-      <audio ref={audioRef}>
+      <PauseModal
+        isActive={isPaused}
+        onResume={handleResume}
+        onExit={handleExit}
+      />
+
+      <audio ref={audioRef} preload="auto">
         <source src={"./src/assets/jingle-bells.mp3"} type={"audio/mpeg"} />
       </audio>
     </div>

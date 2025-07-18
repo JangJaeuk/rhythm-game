@@ -636,18 +636,6 @@ export class GameEngine {
     const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
-    // 디버깅 로그 추가
-    if (this.notes.length > 0 && this.notes[0].timing <= currentTime + 2000) {
-      console.log({
-        audioCurrentTime: this.audio?.currentTime,
-        audioStartTime: this.audioStartTime,
-        currentAudioTime,
-        currentTime,
-        nextNoteTime: this.notes[0].timing,
-        browser: navigator.userAgent
-      });
-    }
-
     this.updateLaneEffects(timestamp);
     this.updateLongNotes(currentTime);
 
