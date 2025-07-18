@@ -33,5 +33,3 @@ export const PASSED_LINE_Y = 50;
 export const FPS = 70;
 // 노트 생성 딜레이
 export const NOTE_DELAY = 100;
-// 맨 처음 음악 실행 딜레이
-export const FIRST_AUDIO_DELAY = 250;

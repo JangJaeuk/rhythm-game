@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useGame } from "../hooks/useGame.ts";
-import "./game.css";
 import {
   CANVAS_HEIGHT,
-  CANVAS_WIDTH,
-  FIRST_AUDIO_DELAY,
+  CANVAS_WIDTH
 } from "../game/constants.ts";
+import { useGame } from "../hooks/useGame.ts";
+import "./game.css";
 
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -13,7 +12,6 @@ function Game() {
 
   const [playerName, setPlayerName] = useState("");
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const isFirstAudioPlay = useRef(false);
 
   const {
     startGame,
@@ -62,7 +60,7 @@ function Game() {
     const newScore = { name: playerName, score };
     const storedScores = JSON.parse(localStorage.getItem("scores") || "[]");
     storedScores.push(newScore);
-    storedScores.sort((a, b) => b.score - a.score);
+    storedScores.sort((a: { score: number }, b: { score: number }) => b.score - a.score);
     localStorage.setItem("scores", JSON.stringify(storedScores));
     setPlayerName("");
     exitGame();
@@ -74,7 +72,7 @@ function Game() {
       <div className="leaderboard-container">
         <h2>Rankings</h2>
         <ul>
-          {scores.map((entry, index) => (
+          {scores.map((entry: { name: string; score: number }, index: number) => (
             <li key={index}>
               {index + 1}. {entry.name}: {entry.score}
             </li>
@@ -85,15 +83,6 @@ function Game() {
         </button>
       </div>
     );
-  };
-
-  const waitFirstAudioPlay = async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(null);
-        isFirstAudioPlay.current = true;
-      }, FIRST_AUDIO_DELAY);
-    });
   };
 
   return (
@@ -121,9 +110,17 @@ function Game() {
                     if (audioRef.current) {
                       audioRef.current.load();
                       await audioRef.current?.play();
-                      if (!isFirstAudioPlay.current) {
-                        await waitFirstAudioPlay();
-                      }
+                      const waitForAudioStart = () => {
+                        const currentTime = audioRef.current?.currentTime ?? 0;
+                        if (currentTime >= 0.01) {
+                          // 동기화하고 싶은 로직 실행
+                          console.log('음악이 0.01초 지남, 동기화 로직 실행');
+                        } else {
+                          console.log("대기");
+                          requestAnimationFrame(waitForAudioStart);
+                        }
+                      };
+                      waitForAudioStart();
                       startGame();
                     }
                   }}
