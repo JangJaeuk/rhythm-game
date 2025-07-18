@@ -15,6 +15,7 @@ function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
+  const [canvasKey, setCanvasKey] = useState(0);
 
   const isSupportedBrowser = useBrowserCheck();
   const { playerName, setPlayerName, saveScore } = useGameScore();
@@ -53,14 +54,14 @@ function Game() {
   const handleMusicSelect = async (musicId: string) => {
     const selectedMusic = MUSIC_LIST.find(music => music.id === musicId);
     if (!selectedMusic) return;
-    
+
     setSelectedMusicId(musicId);
+    setCanvasKey(prev => prev + 1); // 새로운 key 값 설정
     
     loadAudio();
     await playAudio();
     await waitForAudioStart();
     startGame(musicId);
-    
   };
 
   const handleResume = async () => {
@@ -86,6 +87,7 @@ function Game() {
   return (
     <div className={s.gameContainer}>
       <canvas
+        key={canvasKey}
         ref={canvasRef}
         className={s.gameCanvas}
         width={CANVAS_WIDTH}
