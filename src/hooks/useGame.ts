@@ -58,7 +58,6 @@ export function useGame(
   const exitGame = useCallback(() => {
     if (gameEngine) {
       gameEngine.stop();
-      // setGameEngine(null);
       setIsPaused(false);
       setGameState("idle");
     }
@@ -73,6 +72,7 @@ export function useGame(
   }, [gameEngine]);
 
   return {
+    gameEngine,
     startGame,
     pauseGame,
     resumeGame,

@@ -15,7 +15,7 @@ export const MUSIC_LIST: Music[] = [
     {
         id: "a-small-miracle",
         title: "작은 기적",
-        difficulty: 2,
+        difficulty: 3,
         duration: 77,
         audioFile: "./src/assets/a-small-miracle/music.mp3",
         thumbnail: aSmallMiracleThumbnail,

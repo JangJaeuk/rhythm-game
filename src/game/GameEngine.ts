@@ -14,7 +14,9 @@ import {
   PERFECT_RANGE,
   PERFECT_SCORE,
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
+  SPEAKER_DELAY_OFFSET,
   TIME_CONSIDERING_PASSED,
+  TIMING_RATIO,
 } from "./constants/gameBase";
 import {
   Judgment,
@@ -118,7 +120,19 @@ export class GameEngine {
   }
 
   public setNotes(notes: Note[]) {
-    this.notes = [...notes].sort((a, b) => a.timing - b.timing);
+    // 소수점 제거
+    const baseLatency = Math.floor((GameEngine.audioContext?.baseLatency || 0) * 100000);
+
+    // 533ms 기준으로 baseLatency 차이에 따른 타이밍 조정
+    const latencyDiff = baseLatency - SPEAKER_DELAY_OFFSET;
+    const timingOffset = Math.floor(latencyDiff * TIMING_RATIO);
+    
+    const adjustedNotes = notes.map(note => ({
+        ...note,
+        timing: note.timing + timingOffset
+    }));
+
+    this.notes = [...adjustedNotes].sort((a, b) => a.timing - b.timing);
   }
 
   public start() {
