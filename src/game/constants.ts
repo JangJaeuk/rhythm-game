@@ -1,3 +1,5 @@
+import { Music } from "./types";
+
 export const LANE_COLORS = [
   "#ff4757", // Red
   "#2ed573", // Green
@@ -33,3 +35,14 @@ export const PASSED_LINE_Y = 50;
 export const FPS = 70;
 // 노트 생성 딜레이
 export const NOTE_DELAY = 100;
+// 음악 목록
+export const MUSIC_LIST: Music[] = [
+  {
+    id: "jingle-bells",
+    title: "징글벨",
+    difficulty: 1,
+    duration: 29,
+    audioFile: "./src/assets/jingle-bells.mp3",
+    thumbnail: ""
+  }
+] as const;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../game/constants";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, MUSIC_LIST } from "../game/constants";
 import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
@@ -8,15 +8,15 @@ import s from "./game.module.scss";
 import { BrowserCheckModal } from "./modals/BrowserCheckModal";
 import { GameOverModal } from "./modals/GameOverModal";
 import { PauseModal } from "./modals/PauseModal";
-import { StartScreenModal } from "./modals/StartScreenModal";
+import { MusicListScreen } from "./musicList/MusicListScreen";
 
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
 
   const isSupportedBrowser = useBrowserCheck();
-  const { playerName, setPlayerName, saveScore, getLeaderboard } = useGameScore();
+  const { playerName, setPlayerName, saveScore } = useGameScore();
   const {
     startGame,
     pauseGame,
@@ -49,7 +49,11 @@ function Game() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
-  const handleGameStart = async () => {
+  const handleMusicSelect = async (musicId: string) => {
+    setSelectedMusicId(musicId);
+    const selectedMusic = MUSIC_LIST.find(music => music.id === musicId);
+    if (!selectedMusic) return;
+    
     loadAudio();
     await playAudio();
     await waitForAudioStart();
@@ -64,6 +68,12 @@ function Game() {
   const handleExit = () => {
     resetAudio();
     exitGame();
+    setSelectedMusicId(null);
+  };
+
+  const handleSaveScore = () => {
+    if (!selectedMusicId) return;
+    saveScore(score, selectedMusicId, handleExit);
   };
 
   if (!isSupportedBrowser) {
@@ -80,13 +90,7 @@ function Game() {
       />
 
       {gameState === "idle" && (
-        <StartScreenModal
-          showLeaderboard={showLeaderboard}
-          scores={getLeaderboard()}
-          onStartGame={handleGameStart}
-          onShowLeaderboard={() => setShowLeaderboard(true)}
-          onHideLeaderboard={() => setShowLeaderboard(false)}
-        />
+        <MusicListScreen onSelectMusic={handleMusicSelect} />
       )}
 
       {gameState === "ended" && (
@@ -99,8 +103,8 @@ function Game() {
           missCount={missCount}
           playerName={playerName}
           onPlayerNameChange={setPlayerName}
-          onSaveScore={() => saveScore(score, exitGame)}
-          onExit={exitGame}
+          onSaveScore={handleSaveScore}
+          onExit={handleExit}
         />
       )}
 
@@ -111,10 +115,10 @@ function Game() {
       />
 
       <audio ref={audioRef} preload="auto">
-        <source src={"./src/assets/jingle-bells.mp3"} type={"audio/mpeg"} />
+        <source src={selectedMusicId ? MUSIC_LIST.find(m => m.id === selectedMusicId)?.audioFile : ""} type="audio/mpeg" />
       </audio>
     </div>
   );
 }
-
 export default Game;
+
