@@ -51,14 +51,16 @@ function Game() {
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
   const handleMusicSelect = async (musicId: string) => {
-    setSelectedMusicId(musicId);
     const selectedMusic = MUSIC_LIST.find(music => music.id === musicId);
     if (!selectedMusic) return;
+    
+    setSelectedMusicId(musicId);
     
     loadAudio();
     await playAudio();
     await waitForAudioStart();
     startGame(musicId);
+    
   };
 
   const handleResume = async () => {

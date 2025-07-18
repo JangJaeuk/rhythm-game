@@ -20,6 +20,7 @@ export function MusicList({ onSelectMusic }: MusicListProps) {
       <div className={s.musicList}>
         {MUSIC_LIST.map((music) => (
           <div key={music.id} className={s.musicItem}>
+            <img src={music.thumbnail} alt={music.title} className={s.thumbnail} />
             <div className={s.musicInfo}>
               <h2 className={s.musicTitle}>{music.title}</h2>
               <div className={s.musicDetails}>
