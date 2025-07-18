@@ -1,12 +1,4 @@
 import {
-  Judgment,
-  LaneBackgroundEffect,
-  LaneEffect,
-  LongNoteState,
-  Note,
-  NoteType,
-} from "./types";
-import {
   FPS,
   GOOD_RANGE,
   GOOD_SCORE,
@@ -24,6 +16,14 @@ import {
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
   TIME_CONSIDERING_PASSED,
 } from "./constants";
+import {
+  Judgment,
+  LaneBackgroundEffect,
+  LaneEffect,
+  LongNoteState,
+  Note,
+  NoteType,
+} from "./types";
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -34,9 +34,11 @@ export class GameEngine {
   private isRunning: boolean = false;
   private isPaused: boolean = false;
   private startTime: number = 0;
+  private audioStartTime: number = 0;  // 오디오 시작 시점의 currentTime
   private lastTimestamp: number = 0;
   private totalPauseTime: number = 0;
   private pauseStartTime: number = 0;
+  private pauseAudioTime: number = 0;  // 일시정지 시점의 오디오 currentTime
   private combo: number = 0;
   private currentJudgment: Judgment | null = null;
   private judgmentDisplayTime: number = 0;
@@ -123,6 +125,7 @@ export class GameEngine {
     this.isRunning = true;
     this.startTime = performance.now();
     this.lastTimestamp = this.startTime;
+    this.audioStartTime = this.audio?.currentTime || 0;
 
     if (GameEngine.audioContext?.state === "suspended") {
       GameEngine.audioContext.resume();
@@ -139,11 +142,16 @@ export class GameEngine {
   public pause() {
     this.isPaused = true;
     this.pauseStartTime = performance.now();
+    this.pauseAudioTime = this.audio?.currentTime || 0;
   }
 
   public resume() {
     if (this.isPaused) {
-      this.totalPauseTime += performance.now() - this.pauseStartTime;
+      const currentAudioTime = this.audio?.currentTime || 0;
+      // 오디오 시간 차이만큼 보정
+      const audioPauseTime = currentAudioTime - this.pauseAudioTime;
+      this.totalPauseTime = (audioPauseTime * 1000); // 오디오 시간(초)을 밀리초로 변환
+      
       this.isPaused = false;
       this.lastTimestamp = performance.now();
       requestAnimationFrame(this.update.bind(this));
@@ -169,8 +177,10 @@ export class GameEngine {
     // 레인 백그라운드
     this.activateLaneBackgroundEffect(lane);
 
-    const currentTime =
-      performance.now() - this.startTime - this.totalPauseTime;
+    // 오디오 시간 기준으로 현재 시간 계산
+    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+
     const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
 
     for (const note of notesInLane) {
@@ -204,7 +214,7 @@ export class GameEngine {
             // 누른 상태로 변경
             note.isHeld = true;
             note.longNoteState = LongNoteState.HOLDING;
-            this.lastLongNoteUpdate[note.lane] = note.timing;
+            this.lastLongNoteUpdate[note.lane] = currentTime;
           }
           break;
         }
@@ -213,8 +223,10 @@ export class GameEngine {
   }
 
   private handleKeyRelease(lane: number) {
-    const currentTime =
-      performance.now() - this.startTime - this.totalPauseTime;
+    // 오디오 시간 기준으로 현재 시간 계산
+    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+
     const notesInLane = this.activeNotes.filter(
       (note) =>
         note.lane === lane &&
@@ -559,8 +571,9 @@ export class GameEngine {
 
     this.ctx.shadowBlur = 0;
 
-    const currentTime =
-      performance.now() - this.startTime - this.totalPauseTime;
+    // 오디오 시간을 기준으로 게임 시간 계산
+    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
     // 노트 그리기
     for (const note of this.activeNotes) {
@@ -610,10 +623,8 @@ export class GameEngine {
     if (!this.isRunning || this.isPaused) return;
 
     const frameInterval = 1000 / FPS;
-
     const deltaTime = timestamp - this.lastTimestamp;
 
-    // 프레임 간 간격이 목표 간격보다 작으면 건너뜀
     if (deltaTime < frameInterval) {
       requestAnimationFrame(this.update.bind(this));
       return;
@@ -621,7 +632,21 @@ export class GameEngine {
 
     this.lastTimestamp = timestamp;
 
-    const currentTime = timestamp - this.startTime - this.totalPauseTime;
+    // 오디오 시간 기준으로 게임 시간 계산
+    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+
+    // 디버깅 로그 추가
+    if (this.notes.length > 0 && this.notes[0].timing <= currentTime + 2000) {
+      console.log({
+        audioCurrentTime: this.audio?.currentTime,
+        audioStartTime: this.audioStartTime,
+        currentAudioTime,
+        currentTime,
+        nextNoteTime: this.notes[0].timing,
+        browser: navigator.userAgent
+      });
+    }
 
     this.updateLaneEffects(timestamp);
     this.updateLongNotes(currentTime);
