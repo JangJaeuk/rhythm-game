@@ -110,17 +110,20 @@ function Game() {
                     if (audioRef.current) {
                       audioRef.current.load();
                       await audioRef.current?.play();
-                      const waitForAudioStart = () => {
-                        const currentTime = audioRef.current?.currentTime ?? 0;
-                        if (currentTime >= 0.01) {
-                          // 동기화하고 싶은 로직 실행
-                          console.log('음악이 0.01초 지남, 동기화 로직 실행');
-                        } else {
-                          console.log("대기");
-                          requestAnimationFrame(waitForAudioStart);
-                        }
+                      const waitForAudioStart = (): Promise<void> => {
+                        return new Promise((resolve) => {
+                          const check = () => {
+                            const currentTime = audioRef.current?.currentTime ?? 0;
+                            if (currentTime >= 0.01) {
+                              resolve();
+                            } else {
+                              requestAnimationFrame(check);
+                            }
+                          };
+                          check();
+                        });
                       };
-                      waitForAudioStart();
+                      await waitForAudioStart();
                       startGame();
                     }
                   }}
