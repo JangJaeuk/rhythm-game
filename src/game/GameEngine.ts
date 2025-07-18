@@ -15,7 +15,7 @@ import {
   PERFECT_SCORE,
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
   TIME_CONSIDERING_PASSED,
-} from "./constants";
+} from "./constants/gameBase";
 import {
   Judgment,
   LaneBackgroundEffect,

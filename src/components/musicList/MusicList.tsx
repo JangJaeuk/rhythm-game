@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MUSIC_LIST } from "../../game/constants";
+import { MUSIC_LIST } from "../../game/constants/music";
 import { getFormattedDifficulty, getFormattedTime } from "../../game/utils";
 import { useGameScore } from "../../hooks/useGameScore";
 import { LeaderboardModal } from "../modals/LeaderboardModal";

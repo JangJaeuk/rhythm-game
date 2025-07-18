@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { GameEngine } from "../game/GameEngine";
-import { createNotes } from "../game/utils";
+import { getNotes } from "../game/utils";
 
 export function useGame(
   canvasRef: React.RefObject<HTMLCanvasElement>,
@@ -18,7 +18,7 @@ export function useGame(
   const [normalCount, setNormalCount] = useState(0);
   const [missCount, setMissCount] = useState(0);
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback((musicId: string) => {
     if (!canvasRef.current) return;
 
     const engine = new GameEngine(canvasRef.current, audioRef.current, () => {
@@ -31,7 +31,7 @@ export function useGame(
       setGameState("ended");
     });
 
-    const testNotes = createNotes();
+    const testNotes = getNotes(musicId);
     engine.setNotes(testNotes);
     engine.start();
 

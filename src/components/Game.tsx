@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { CANVAS_HEIGHT, CANVAS_WIDTH, MUSIC_LIST } from "../game/constants";
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../game/constants/gameBase";
+import { MUSIC_LIST } from "../game/constants/music";
 import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
@@ -57,7 +58,7 @@ function Game() {
     loadAudio();
     await playAudio();
     await waitForAudioStart();
-    startGame();
+    startGame(musicId);
   };
 
   const handleResume = async () => {
