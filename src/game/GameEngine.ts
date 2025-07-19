@@ -14,9 +14,7 @@ import {
   PERFECT_RANGE,
   PERFECT_SCORE,
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
-  SPEAKER_DELAY_OFFSET,
   TIME_CONSIDERING_PASSED,
-  TIMING_RATIO,
 } from "./constants/gameBase";
 import {
   Judgment,
@@ -26,6 +24,7 @@ import {
   Note,
   NoteType,
 } from "./types";
+import { measureAudioLatency } from "./utils";
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -63,6 +62,7 @@ export class GameEngine {
   private static audioSource?: MediaElementAudioSourceNode;
   private static isAudioInitialized: boolean = false;
   private static connectedAudioElement?: HTMLAudioElement;
+  private static latency: number = 0;
 
   score: number = 0;
   maxCombo: number = 0;
@@ -91,9 +91,7 @@ export class GameEngine {
     });
     this.onGameOver = onGameOver;
 
-    if (audio) {
-      this.initializeAudio(audio);
-    }
+    this.initializeAudio();
 
     this.setupKeyboardListeners();
   }
@@ -124,16 +122,9 @@ export class GameEngine {
   }
 
   public setNotes(notes: Note[]) {
-    // 소수점 제거
-    const baseLatency = Math.floor((GameEngine.audioContext?.baseLatency || 0) * 100000);
-
-    // 533ms 기준으로 baseLatency 차이에 따른 타이밍 조정
-    const latencyDiff = baseLatency - SPEAKER_DELAY_OFFSET;
-    const timingOffset = Math.floor(latencyDiff * TIMING_RATIO);
-    
     const adjustedNotes = notes.map(note => ({
         ...note,
-        timing: note.timing + timingOffset
+        timing: note.timing + GameEngine.latency
     }));
 
     this.notes = [...adjustedNotes].sort((a, b) => a.timing - b.timing);
@@ -774,21 +765,49 @@ export class GameEngine {
   }
 
   // 오디오 초기화 함수 추가
-  private initializeAudio(audio: HTMLAudioElement) {
+  private async initializeAudio() {
     try {
+      const bufferLength = GameEngine.analyser?.frequencyBinCount || 0;
+      this.dataArray = new Uint8Array(bufferLength);
+      this.previousIntensities = [];
+      this.maxIntensity = 0;
+    } catch (error) {
+      console.error("Failed to initialize audio:", error);
+    }
+  }
+
+  private getComboMultiplier(): number {
+    if (this.combo >= 60) return 1.5;
+    else if (this.combo >= 40) return 1.3;
+    else if (this.combo >= 20) return 1.2;
+    else return 1.0;
+  }
+
+  static async initializeAudioBase(audio: HTMLAudioElement) {
+    try {
+      // 이미 초기화되어 있고 같은 오디오 엘리먼트인 경우
       if (GameEngine.connectedAudioElement === audio && GameEngine.isAudioInitialized) {
         console.log("Reusing existing audio connection");
-        if (GameEngine.analyser) {
-          const bufferLength = GameEngine.analyser.frequencyBinCount;
-          this.dataArray = new Uint8Array(bufferLength);
-          this.previousIntensities = [];
-          this.maxIntensity = 0;
+        if (!GameEngine.latency) {
+          GameEngine.latency = await measureAudioLatency(GameEngine.audioContext!);
         }
         return;
       }
 
-      if (!GameEngine.audioContext) {
+      // 기존 연결 해제
+      if (GameEngine.audioSource) {
+        GameEngine.audioSource.disconnect();
+      }
+      if (GameEngine.analyser) {
+        GameEngine.analyser.disconnect();
+      }
+
+      // 새로운 AudioContext 생성 및 연결
+      if (!GameEngine.audioContext || GameEngine.audioContext.state === 'closed') {
         GameEngine.audioContext = new AudioContext();
+      }
+
+      try {
         GameEngine.analyser = GameEngine.audioContext.createAnalyser();
         GameEngine.audioSource = GameEngine.audioContext.createMediaElementSource(audio);
 
@@ -801,23 +820,25 @@ export class GameEngine {
         GameEngine.analyser.minDecibels = -65;
         GameEngine.analyser.maxDecibels = -12;
 
-        const bufferLength = GameEngine.analyser.frequencyBinCount;
-        this.dataArray = new Uint8Array(bufferLength);
-        this.previousIntensities = [];
-        this.maxIntensity = 0;
-
         GameEngine.connectedAudioElement = audio;
         GameEngine.isAudioInitialized = true;
+
+        // 레이턴시 측정
+        GameEngine.latency = await measureAudioLatency(GameEngine.audioContext);
+        console.log('Measured latency:', GameEngine.latency, 'ms');
+      } catch (error) {
+        // 이미 연결된 경우 기존 연결 재사용
+        if (error instanceof DOMException && error.name === 'InvalidStateError') {
+          console.log("Audio element already connected, reusing connection");
+          if (!GameEngine.latency) {
+            GameEngine.latency = await measureAudioLatency(GameEngine.audioContext);
+          }
+        } else {
+          throw error;
+        }
       }
     } catch (error) {
-      console.error("Failed to initialize audio:", error);
+      console.error("Failed to initialize audio base:", error);
     }
-  }
-
-  private getComboMultiplier(): number {
-    if (this.combo >= 60) return 1.5;
-    else if (this.combo >= 40) return 1.3;
-    else if (this.combo >= 20) return 1.2;
-    else return 1.0;
   }
 }

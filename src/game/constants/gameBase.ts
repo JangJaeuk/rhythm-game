@@ -33,8 +33,3 @@ export const PASSED_LINE_Y = 50;
 export const FPS = 70;
 // 노트 생성 딜레이
 export const NOTE_DELAY = 100;
-
-// 스피커 딜레이 오프셋 (내장 스피커 기준)
-export const SPEAKER_DELAY_OFFSET = 533;
-// 노트 타이밍 조정 비율
-export const TIMING_RATIO = 4.255319;

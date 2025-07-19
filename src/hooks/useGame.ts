@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { GameEngine } from "../game/GameEngine";
-import { getNotes } from "../game/utils";
+import { getNotes, waitForAudioRefRaf } from "../game/utils";
 
 export function useGame(
   canvasRef: React.RefObject<HTMLCanvasElement>,
@@ -19,7 +19,7 @@ export function useGame(
   const [missCount, setMissCount] = useState(0);
 
   const startGame = useCallback((musicId: string) => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !audioRef.current) return;
 
     const engine = new GameEngine(canvasRef.current, audioRef.current, () => {
       setMaxCombo(engine.maxCombo);
@@ -70,6 +70,15 @@ export function useGame(
       }
     };
   }, [gameEngine]);
+
+  useEffect(() => {
+    const initAudioBase = async () => {
+      const audio = await waitForAudioRefRaf(audioRef);
+      await GameEngine.initializeAudioBase(audio);
+    }
+
+    initAudioBase();
+  }, []);
 
   return {
     gameEngine,
