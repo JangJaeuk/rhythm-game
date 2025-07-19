@@ -38,9 +38,6 @@ export class GameEngine {
   private startTime: number = 0;
   private audioStartTime: number = 0;  // 오디오 시작 시점의 currentTime
   private lastTimestamp: number = 0;
-  private totalPauseTime: number = 0;
-  private pauseStartTime: number = 0;
-  private pauseAudioTime: number = 0;  // 일시정지 시점의 오디오 currentTime
   private combo: number = 0;
   private currentJudgment: Judgment | null = null;
   private judgmentDisplayTime: number = 0;
@@ -155,17 +152,10 @@ export class GameEngine {
 
   public pause() {
     this.isPaused = true;
-    this.pauseStartTime = performance.now();
-    this.pauseAudioTime = this.audio?.currentTime || 0;
   }
 
   public resume() {
     if (this.isPaused) {
-      const currentAudioTime = this.audio?.currentTime || 0;
-      // 오디오 시간 차이만큼 보정
-      const audioPauseTime = currentAudioTime - this.pauseAudioTime;
-      this.totalPauseTime = (audioPauseTime * 1000); // 오디오 시간(초)을 밀리초로 변환
-      
       this.isPaused = false;
       this.lastTimestamp = performance.now();
       requestAnimationFrame(this.update.bind(this));
@@ -179,8 +169,6 @@ export class GameEngine {
     this.combo = 0;
     this.maxCombo = 0;
     this.currentJudgment = null;
-    this.totalPauseTime = 0;
-    this.pauseStartTime = 0;
     this.perfectCount = 0;
     this.goodCount = 0;
     this.normalCount = 0;
