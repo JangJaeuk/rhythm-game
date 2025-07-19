@@ -55,6 +55,8 @@ export class GameEngine {
     }));
   private onGameOver: () => void;
   private dataArray?: Uint8Array;
+  private previousHeights: number[] = [];
+  private readonly SMOOTHING_FACTOR = 0.3;
 
   private static audioContext?: AudioContext;
   private static analyser?: AnalyserNode;
@@ -68,6 +70,11 @@ export class GameEngine {
   goodCount: number = 0;
   normalCount: number = 0;
   missCount: number = 0;
+
+  private previousIntensities: number[] = [];
+  private readonly HISTORY_SIZE = 4;
+  private maxIntensity: number = 0;
+  private readonly DECAY_FACTOR = 0.95; // 최대값 감쇠 계수
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -330,7 +337,6 @@ export class GameEngine {
     const comboMultiplier = this.getComboMultiplier();
     this.score += PERFECT_SCORE * comboMultiplier;
     this.combo++;
-    this.perfectCount++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
     this.judgmentDisplayTime = performance.now();
@@ -472,49 +478,142 @@ export class GameEngine {
 
       const centerX = this.canvas.width / 2;
       const centerY = this.canvas.height / 2;
-      const radius = 40;
+      const radius = 30; // 원 크기 감소
 
-      const barCount = 60;
-      const angleStep = (Math.PI * 1.5) / barCount;
-      const bandSize = Math.floor(this.dataArray.length / barCount);
+      const barCount = 80;
+      const angleStep = (Math.PI * 2) / barCount;
+
+      // 주파수 데이터를 로그 스케일로 재배치
+      const frequencyData = this.processFrequencyData(this.dataArray, barCount);
+
+      // 초기화가 필요한 경우 previousHeights 배열 초기화
+      if (this.previousHeights.length !== barCount) {
+        this.previousHeights = new Array(barCount).fill(0);
+      }
 
       this.ctx.save();
 
       for (let i = 0; i < barCount; i++) {
-        const angle = i * angleStep - Math.PI / 4;
+        const angle = i * angleStep;
 
-        // 주파수 대역의 평균값 계산
-        const start = i * bandSize;
-        const end = start + bandSize;
-        const bandData = this.dataArray.slice(start, end);
-        const averageValue =
-          bandData.reduce((sum, value) => sum + value, 0) / bandData.length;
+        // 부드러운 애니메이션을 위한 높이 보간
+        const targetHeight = this.normalizeHeight(frequencyData[i]);
+        this.previousHeights[i] = this.previousHeights[i] * (1 - this.SMOOTHING_FACTOR) + 
+                                 targetHeight * this.SMOOTHING_FACTOR;
+        
+        const height = this.previousHeights[i];
 
-        // 높이 계산
-        const minHeight = 10;
-        const maxHeight = 30;
-        const heightRange = maxHeight - minHeight;
-        const normalizedValue = Math.pow(averageValue / 255, 1.5);
-        const height = minHeight + heightRange * normalizedValue;
+        // 그라데이션 생성
+        const gradient = this.ctx.createLinearGradient(
+          centerX + Math.cos(angle) * radius,
+          centerY + Math.sin(angle) * radius,
+          centerX + Math.cos(angle) * (radius + height),
+          centerY + Math.sin(angle) * (radius + height)
+        );
+
+        // 주파수에 따른 색상 계산
+        const hue = (i / barCount) * 360;
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, 0.8)`);
+        gradient.addColorStop(1, `hsla(${hue}, 100%, 80%, 0.2)`);
 
         const innerX = centerX + Math.cos(angle) * radius;
         const innerY = centerY + Math.sin(angle) * radius;
         const outerX = centerX + Math.cos(angle) * (radius + height);
         const outerY = centerY + Math.sin(angle) * (radius + height);
 
-        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-        this.ctx.lineWidth = 2;
-
+        // 막대 그리기
         this.ctx.beginPath();
+        this.ctx.lineCap = 'round';
+        this.ctx.lineWidth = (Math.PI * radius * 2) / barCount * 0.7; // 막대 두께 조정
+        this.ctx.strokeStyle = gradient;
         this.ctx.moveTo(innerX, innerY);
         this.ctx.lineTo(outerX, outerY);
         this.ctx.stroke();
       }
 
+      // 중앙 원 그리기
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius - 3, 0, Math.PI * 2);
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
       this.ctx.restore();
     } catch (error) {
       console.error("Error in drawVisualizer:", error);
     }
+  }
+
+  private processFrequencyData(data: Uint8Array, targetLength: number): number[] {
+    const dataLength = data.length;
+    
+    // 비트와 멜로디 주파수 대역 분리
+    const bassStart = Math.floor(dataLength * 0.05);    // ~100Hz
+    const bassEnd = Math.floor(dataLength * 0.15);      // ~300Hz
+    const melodyStart = Math.floor(dataLength * 0.15);  // ~300Hz
+    const melodyEnd = Math.floor(dataLength * 0.4);     // ~2kHz
+    
+    // 비트(저주파) 대역의 에너지 계산
+    let bassSum = 0;
+    for (let i = bassStart; i < bassEnd; i++) {
+      bassSum += data[i];
+    }
+    const bassEnergy = bassSum / (bassEnd - bassStart);
+
+    // 멜로디 대역의 에너지 계산
+    let melodySum = 0;
+    let maxValue = 0;
+    for (let i = melodyStart; i < melodyEnd; i++) {
+      melodySum += data[i];
+      maxValue = Math.max(maxValue, data[i]);
+    }
+    const melodyAvg = melodySum / (melodyEnd - melodyStart);
+    
+    // 비트와 멜로디 조합
+    const currentIntensity = Math.max(
+      bassEnergy * 1.2,  // 비트에 가중치
+      maxValue * 0.7 + melodyAvg * 0.3
+    );
+
+    // 최대값 업데이트 (서서히 감소하는 최대값)
+    this.maxIntensity = Math.max(currentIntensity, this.maxIntensity * this.DECAY_FACTOR);
+    
+    // 이전 값들과 비교하여 변화 감지
+    this.previousIntensities.push(currentIntensity);
+    if (this.previousIntensities.length > this.HISTORY_SIZE) {
+      this.previousIntensities.shift();
+    }
+
+    // 변화량 계산 (최근 값들의 변동성)
+    let variability = 0;
+    for (let i = 1; i < this.previousIntensities.length; i++) {
+      const delta = Math.abs(this.previousIntensities[i] - this.previousIntensities[i-1]);
+      variability += delta;
+    }
+    variability /= this.previousIntensities.length;
+
+    // 동적 범위 조정을 위한 정규화
+    const normalizedIntensity = currentIntensity / (this.maxIntensity || 1);
+    
+    // 변화량에 따른 증폭 및 진동 효과
+    const oscillation = Math.sin(Date.now() / 50) * 0.1; // 미세한 진동 추가
+    const amplificationFactor = 0.7 + (variability / 50) + oscillation;
+    
+    // 최종 강도 계산 (더 부드러운 곡선)
+    const amplifiedIntensity = Math.pow(normalizedIntensity, 0.4) * 255 * amplificationFactor;
+    
+    return new Array(targetLength).fill(amplifiedIntensity);
+  }
+
+  private normalizeHeight(value: number): number {
+    const minHeight = 2;   // 최소 높이 더 감소
+    const maxHeight = 18;  // 최대 높이 감소
+    const heightRange = maxHeight - minHeight;
+    
+    // 더 부드러운 반응 곡선
+    const t = value / 255;
+    const smoothValue = t * t * (3 - 2 * t); // 부드러운 보간
+    return minHeight + heightRange * smoothValue;
   }
 
   // 기존 draw 함수 수정
@@ -677,32 +776,35 @@ export class GameEngine {
   // 오디오 초기화 함수 추가
   private initializeAudio(audio: HTMLAudioElement) {
     try {
-      // 이미 같은 오디오 요소가 연결되어 있다면 dataArray만 초기화
-      if (
-        GameEngine.connectedAudioElement === audio &&
-        GameEngine.isAudioInitialized
-      ) {
+      if (GameEngine.connectedAudioElement === audio && GameEngine.isAudioInitialized) {
         console.log("Reusing existing audio connection");
         if (GameEngine.analyser) {
           const bufferLength = GameEngine.analyser.frequencyBinCount;
           this.dataArray = new Uint8Array(bufferLength);
+          this.previousIntensities = [];
+          this.maxIntensity = 0;
         }
         return;
       }
 
-      // 새로운 연결이 필요한 경우
       if (!GameEngine.audioContext) {
         GameEngine.audioContext = new AudioContext();
         GameEngine.analyser = GameEngine.audioContext.createAnalyser();
-        GameEngine.audioSource =
-          GameEngine.audioContext.createMediaElementSource(audio);
+        GameEngine.audioSource = GameEngine.audioContext.createMediaElementSource(audio);
 
         GameEngine.audioSource.connect(GameEngine.analyser);
         GameEngine.analyser.connect(GameEngine.audioContext.destination);
 
-        GameEngine.analyser.fftSize = 256;
+        // 더 빠른 반응을 위한 설정 조정
+        GameEngine.analyser.fftSize = 1024;
+        GameEngine.analyser.smoothingTimeConstant = 0.1;
+        GameEngine.analyser.minDecibels = -65;
+        GameEngine.analyser.maxDecibels = -12;
+
         const bufferLength = GameEngine.analyser.frequencyBinCount;
         this.dataArray = new Uint8Array(bufferLength);
+        this.previousIntensities = [];
+        this.maxIntensity = 0;
 
         GameEngine.connectedAudioElement = audio;
         GameEngine.isAudioInitialized = true;
