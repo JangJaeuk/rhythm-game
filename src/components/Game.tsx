@@ -90,40 +90,19 @@ function Game() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
-  // 터치 시작 핸들러
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !gameState) return;
+  // 마우스 클릭 핸들러 (일시정지 버튼용)
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !gameState || !gameEngine) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    // 모든 터치 포인트에 대해 처리
-    Array.from(e.touches).forEach(touch => {
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-      // 일시정지 버튼 클릭 체크
-      if (gameState === "playing" && gameEngine?.isPauseButtonClicked(x, y)) {
-        pauseAudio();
-        pauseGame();
-        return;
-      }
-
-      gameEngine?.handleTouchStart(touch.identifier, x);
-    });
-  };
-
-  // 터치 종료 핸들러
-  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !gameState) return;
-    
-    Array.from(e.changedTouches).forEach(touch => {
-      gameEngine?.handleTouchEnd(touch.identifier);
-    });
-  };
-
-  // 터치 이동 핸들러 (새로운 터치가 추가될 때)
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
-    e.preventDefault();
+    // 일시정지 버튼 클릭 체크
+    if (gameState === "playing" && gameEngine.isPauseButtonClicked(x, y)) {
+      pauseAudio();
+      pauseGame();
+    }
   };
 
   const handleMusicSelect = async (musicId: string) => {
@@ -169,12 +148,9 @@ function Game() {
         height={canvasSize.height}
         style={{
           width: canvasSize.width,
-          height: canvasSize.height,
-          touchAction: 'none'  // 브라우저 기본 터치 동작 방지
+          height: canvasSize.height
         }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchMove}
+        onClick={handleClick}
       />
 
       {gameState === "idle" && (

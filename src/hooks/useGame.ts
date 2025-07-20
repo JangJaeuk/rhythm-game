@@ -59,18 +59,6 @@ export function useGame(
     }
   }, [gameEngine]);
 
-  const handleCanvasClick = (x: number) => {
-    if (gameEngine && gameState === "playing") {
-      gameEngine.handleClick(x);
-    }
-  };
-
-  const handleCanvasRelease = (x: number) => {
-    if (gameEngine && gameState === "playing") {
-      gameEngine.handleRelease(x);
-    }
-  };
-
   useEffect(() => {
     return () => {
       if (gameEngine) {
@@ -102,7 +90,5 @@ export function useGame(
     goodCount,
     normalCount,
     missCount,
-    handleCanvasClick,
-    handleCanvasRelease,
   };
 }

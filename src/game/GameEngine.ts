@@ -98,81 +98,33 @@ export class GameEngine {
     return PASSED_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
   }
 
-  // 마우스/터치 클릭 위치로 레인 인덱스 계산
-  private getLaneFromPosition(x: number): number {
-    const relativeX = x / this.scale; // 실제 캔버스 크기를 고려한 상대 좌표
-    return Math.floor(relativeX / LANE_WIDTH);
-  }
+  // 일시정지 버튼 영역
+  private readonly PAUSE_BUTTON = {
+    x: 0,
+    y: 0,
+    width: 40,
+    height: 40,
+    margin: 20,
+  };
 
-  // 마우스/터치 입력 처리
-  public handleClick(x: number) {
-    if (!this.isRunning || this.isPaused) return;
+  // 일시정지 버튼 클릭 체크
+  public isPauseButtonClicked(x: number, y: number): boolean {
+    if (!this.isRunning || this.isPaused) return false;
 
-    const lane = this.getLaneFromPosition(x);
-    if (lane >= 0 && lane < LANE_COUNT) {
-      this.handleKeyPress(lane);
-    }
-  }
+    const scale = this.scale;
+    const buttonX =
+      this.canvas.width -
+      (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
+    const buttonY = this.PAUSE_BUTTON.margin * scale;
+    const buttonWidth = this.PAUSE_BUTTON.width * scale;
+    const buttonHeight = this.PAUSE_BUTTON.height * scale;
 
-  // 마우스/터치 릴리즈 처리
-  public handleRelease(x: number) {
-    if (!this.isRunning || this.isPaused) return;
-
-    const lane = this.getLaneFromPosition(x);
-    if (lane >= 0 && lane < LANE_COUNT) {
-      this.handleKeyRelease(lane);
-    }
-  }
-
-  // 터치 시작 처리
-  public handleTouchStart(touchId: number, x: number) {
-    if (!this.isRunning || this.isPaused) return;
-    
-    const lane = this.getLaneFromPosition(x);
-    if (lane >= 0 && lane < LANE_COUNT) {
-      // 이전에 다른 레인을 누르고 있었다면 해제
-      const oldLane = this.touchLaneMap.get(touchId);
-      if (oldLane !== undefined && oldLane !== lane) {
-        this.handleTouchEnd(touchId);
-      }
-
-      // 새로운 레인 터치 처리
-      this.touchLaneMap.set(touchId, lane);
-      const activeTouches = this.activeTouchesPerLane.get(lane)!;
-      if (!activeTouches.has(touchId)) {
-        activeTouches.add(touchId);
-        if (activeTouches.size === 1) {
-          this.handleKeyPress(lane);
-        }
-      }
-    }
-  }
-
-  // 터치 종료 처리
-  public handleTouchEnd(touchId: number) {
-    if (!this.isRunning || this.isPaused) return;
-    
-    const lane = this.touchLaneMap.get(touchId);
-    if (lane !== undefined) {
-      const activeTouches = this.activeTouchesPerLane.get(lane)!;
-      activeTouches.delete(touchId);
-      
-      if (activeTouches.size === 0) {
-        this.handleKeyRelease(lane);
-      }
-      
-      this.touchLaneMap.delete(touchId);
-    }
-  }
-
-  private touchLaneMap: Map<number, number> = new Map();
-  private activeTouchesPerLane: Map<number, Set<number>> = new Map();
-
-  private initializeLaneState() {
-    this.activeTouchesPerLane.clear();
-    for (let i = 0; i < LANE_COUNT; i++) {
-      this.activeTouchesPerLane.set(i, new Set());
-    }
+    return (
+      x >= buttonX &&
+      x <= buttonX + buttonWidth &&
+      y >= buttonY &&
+      y <= buttonY + buttonHeight
+    );
   }
 
   constructor(
@@ -191,8 +143,6 @@ export class GameEngine {
     this.onGameOver = onGameOver;
 
     this.initializeAudio();
-    this.initializeLaneState();
-
     this.setupKeyboardListeners();
   }
 
@@ -246,8 +196,6 @@ export class GameEngine {
   // 게임 상태 초기화 시 모든 레인 이펙트도 초기화
   public stop() {
     this.isRunning = false;
-    this.touchLaneMap.clear();
-    this.initializeLaneState();
     this.reset();
 
     // 모든 레인 이펙트 초기화
@@ -259,8 +207,6 @@ export class GameEngine {
 
   public pause() {
     this.isPaused = true;
-    this.touchLaneMap.clear();
-    this.initializeLaneState();
 
     // 모든 레인 이펙트 초기화
     for (let i = 0; i < LANE_COUNT; i++) {
@@ -743,34 +689,6 @@ export class GameEngine {
     const t = value / 255;
     const smoothValue = t * t * (3 - 2 * t); // 부드러운 보간
     return minHeight + heightRange * smoothValue;
-  }
-
-  private readonly PAUSE_BUTTON = {
-    x: 0,
-    y: 0,
-    width: 40,
-    height: 40,
-    margin: 20,
-  };
-
-  // 일시정지 버튼 클릭 체크
-  public isPauseButtonClicked(x: number, y: number): boolean {
-    if (!this.isRunning || this.isPaused) return false;
-
-    const scale = this.scale;
-    const buttonX =
-      this.canvas.width -
-      (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
-    const buttonY = this.PAUSE_BUTTON.margin * scale;
-    const buttonWidth = this.PAUSE_BUTTON.width * scale;
-    const buttonHeight = this.PAUSE_BUTTON.height * scale;
-
-    return (
-      x >= buttonX &&
-      x <= buttonX + buttonWidth &&
-      y >= buttonY &&
-      y <= buttonY + buttonHeight
-    );
   }
 
   // 일시정지 버튼 그리기
