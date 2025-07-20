@@ -137,20 +137,19 @@ function Game() {
         return;
       }
 
-      handleCanvasClick(x);
+      // 터치 ID로 레인 처리
+      gameEngine?.handleTouchStart(touch.identifier, x);
     });
   };
 
   // 터치 종료 핸들러
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !gameState) return;
     e.preventDefault();
     
-    const rect = canvasRef.current.getBoundingClientRect();
     // 종료된 터치 포인트에 대해 처리
     Array.from(e.changedTouches).forEach(touch => {
-      const x = touch.clientX - rect.left;
-      handleCanvasRelease(x);
+      gameEngine?.handleTouchEnd(touch.identifier);
     });
   };
 

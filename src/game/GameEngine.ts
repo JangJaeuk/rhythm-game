@@ -124,6 +124,31 @@ export class GameEngine {
     }
   }
 
+  // 터치 ID와 레인을 매핑하는 맵 추가
+  private touchLaneMap: Map<number, number> = new Map();
+
+  // 터치 시작 처리
+  public handleTouchStart(touchId: number, x: number) {
+    if (!this.isRunning || this.isPaused) return;
+    
+    const lane = this.getLaneFromPosition(x);
+    if (lane >= 0 && lane < LANE_COUNT) {
+      this.touchLaneMap.set(touchId, lane);
+      this.handleKeyPress(lane);
+    }
+  }
+
+  // 터치 종료 처리
+  public handleTouchEnd(touchId: number) {
+    if (!this.isRunning || this.isPaused) return;
+    
+    const lane = this.touchLaneMap.get(touchId);
+    if (lane !== undefined) {
+      this.handleKeyRelease(lane);
+      this.touchLaneMap.delete(touchId);
+    }
+  }
+
   constructor(
     canvas: HTMLCanvasElement,
     audio: HTMLAudioElement | null,
@@ -191,13 +216,16 @@ export class GameEngine {
     requestAnimationFrame(this.update.bind(this));
   }
 
+  // 게임 종료나 일시정지 시 터치 맵 초기화 추가
   public stop() {
     this.isRunning = false;
+    this.touchLaneMap.clear();
     this.reset();
   }
 
   public pause() {
     this.isPaused = true;
+    this.touchLaneMap.clear();
   }
 
   public resume() {
