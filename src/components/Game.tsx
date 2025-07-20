@@ -34,6 +34,8 @@ function Game() {
     goodCount,
     normalCount,
     missCount,
+    handleCanvasClick,
+    handleCanvasRelease,
   } = useGame(canvasRef, audioRef);
   const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } = useGameAudio(audioRef);
 
@@ -89,6 +91,24 @@ function Game() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
+  // 캔버스 클릭 이벤트 핸들러
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    handleCanvasClick(x);
+  };
+
+  // 캔버스 마우스업 이벤트 핸들러
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    handleCanvasRelease(x);
+  };
+
   const handleMusicSelect = async (musicId: string) => {
     const selectedMusic = MUSIC_LIST.find(music => music.id === musicId);
     if (!selectedMusic) return;
@@ -134,6 +154,8 @@ function Game() {
           width: canvasSize.width,
           height: canvasSize.height
         }}
+        onMouseDown={handleClick}
+        onMouseUp={handleMouseUp}
       />
 
       {gameState === "idle" && (

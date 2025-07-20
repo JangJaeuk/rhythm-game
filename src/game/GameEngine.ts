@@ -98,6 +98,32 @@ export class GameEngine {
     return PASSED_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
   }
 
+  // 마우스/터치 클릭 위치로 레인 인덱스 계산
+  private getLaneFromPosition(x: number): number {
+    const relativeX = x / this.scale;  // 실제 캔버스 크기를 고려한 상대 좌표
+    return Math.floor(relativeX / LANE_WIDTH);
+  }
+
+  // 마우스/터치 입력 처리
+  public handleClick(x: number) {
+    if (!this.isRunning || this.isPaused) return;
+    
+    const lane = this.getLaneFromPosition(x);
+    if (lane >= 0 && lane < LANE_COUNT) {
+      this.handleKeyPress(lane);
+    }
+  }
+
+  // 마우스/터치 릴리즈 처리
+  public handleRelease(x: number) {
+    if (!this.isRunning || this.isPaused) return;
+    
+    const lane = this.getLaneFromPosition(x);
+    if (lane >= 0 && lane < LANE_COUNT) {
+      this.handleKeyRelease(lane);
+    }
+  }
+
   constructor(
     canvas: HTMLCanvasElement,
     audio: HTMLAudioElement | null,

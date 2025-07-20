@@ -10,7 +10,6 @@ export function useGame(
   const [gameState, setGameState] = useState<
     "idle" | "playing" | "paused" | "ended"
   >("idle");
-  const [isPaused, setIsPaused] = useState(false);
   const [maxCombo, setMaxCombo] = useState(0);
   const [score, setScore] = useState(0);
   const [perfectCount, setPerfectCount] = useState(0);
@@ -42,7 +41,6 @@ export function useGame(
   const pauseGame = useCallback(() => {
     if (gameEngine && gameState === "playing") {
       gameEngine.pause();
-      setIsPaused(true);
       setGameState("paused");
     }
   }, [gameEngine, gameState]);
@@ -50,7 +48,6 @@ export function useGame(
   const resumeGame = useCallback(() => {
     if (gameEngine && gameState === "paused") {
       gameEngine.resume();
-      setIsPaused(false);
       setGameState("playing");
     }
   }, [gameEngine, gameState]);
@@ -58,10 +55,21 @@ export function useGame(
   const exitGame = useCallback(() => {
     if (gameEngine) {
       gameEngine.stop();
-      setIsPaused(false);
       setGameState("idle");
     }
   }, [gameEngine]);
+
+  const handleCanvasClick = (x: number) => {
+    if (gameEngine && gameState === "playing") {
+      gameEngine.handleClick(x);
+    }
+  };
+
+  const handleCanvasRelease = (x: number) => {
+    if (gameEngine && gameState === "playing") {
+      gameEngine.handleRelease(x);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -87,12 +95,14 @@ export function useGame(
     resumeGame,
     exitGame,
     gameState,
-    isPaused,
+    isPaused: gameState === "paused",
     maxCombo,
     score,
     perfectCount,
     goodCount,
     normalCount,
     missCount,
+    handleCanvasClick,
+    handleCanvasRelease,
   };
 }
