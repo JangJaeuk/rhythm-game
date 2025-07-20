@@ -1,4 +1,6 @@
 import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
   FPS,
   GOOD_RANGE,
   GOOD_SCORE,
@@ -75,6 +77,26 @@ export class GameEngine {
   private readonly HISTORY_SIZE = 4;
   private maxIntensity: number = 0;
   private readonly DECAY_FACTOR = 0.95; // 최대값 감쇠 계수
+
+  // 캔버스 크기에 따른 스케일 계산
+  private get scale() {
+    return this.canvas.width / CANVAS_WIDTH;
+  }
+
+  // 실제 레인 너비 계산
+  private get scaledLaneWidth() {
+    return LANE_WIDTH * this.scale;
+  }
+
+  // 실제 판정선 Y 좌표 계산
+  private get scaledJudgementLineY() {
+    return JUDGEMENT_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
+  }
+
+  // 실제 노트 통과 Y 좌표 계산
+  private get scaledPassedLineY() {
+    return PASSED_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
+  }
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -627,8 +649,8 @@ export class GameEngine {
         this.ctx.beginPath();
         this.ctx.globalAlpha = 0.2;
         this.ctx.strokeStyle = "#fff";
-        this.ctx.moveTo((i + 1) * LANE_WIDTH, 0);
-        this.ctx.lineTo((i + 1) * LANE_WIDTH, this.canvas.height);
+        this.ctx.moveTo((i + 1) * this.scaledLaneWidth, 0);
+        this.ctx.lineTo((i + 1) * this.scaledLaneWidth, this.canvas.height);
         this.ctx.stroke();
       }
 
@@ -636,9 +658,9 @@ export class GameEngine {
       if (this.laneBackgroundEffects[i].active) {
         // 그라데이션 생성
         const gradient = this.ctx.createLinearGradient(
-          i * LANE_WIDTH,
+          i * this.scaledLaneWidth,
           0,
-          LANE_WIDTH,
+          this.scaledLaneWidth,
           this.canvas.height
         );
         gradient.addColorStop(0, "#000");
@@ -649,24 +671,24 @@ export class GameEngine {
 
         // 사각형 그리기
         this.ctx.globalAlpha = 0.2;
-        this.ctx.fillRect(i * LANE_WIDTH, 0, LANE_WIDTH, this.canvas.height);
+        this.ctx.fillRect(i * this.scaledLaneWidth, 0, this.scaledLaneWidth, this.canvas.height);
       }
 
       // 3. 노트 떨어지는 타이밍에 맞춰 눌렀을 때 효과
       this.ctx.globalAlpha = 1;
       this.ctx.strokeStyle = LANE_COLORS[i];
-      this.ctx.lineWidth = this.laneEffects[i].active ? 10 : 4;
+      this.ctx.lineWidth = this.laneEffects[i].active ? 10 * this.scale : 4 * this.scale;
 
       if (this.laneEffects[i].active) {
-        this.ctx.shadowBlur = 15;
+        this.ctx.shadowBlur = 15 * this.scale;
         this.ctx.shadowColor = LANE_COLORS[i];
       } else {
         this.ctx.shadowBlur = 0;
       }
 
       this.ctx.beginPath();
-      this.ctx.moveTo(i * LANE_WIDTH, JUDGEMENT_LINE_Y);
-      this.ctx.lineTo((i + 1) * LANE_WIDTH, JUDGEMENT_LINE_Y);
+      this.ctx.moveTo(i * this.scaledLaneWidth, this.scaledJudgementLineY);
+      this.ctx.lineTo((i + 1) * this.scaledLaneWidth, this.scaledJudgementLineY);
       this.ctx.stroke();
     }
 
@@ -678,14 +700,20 @@ export class GameEngine {
 
     // 노트 그리기
     for (const note of this.activeNotes) {
-      const y = JUDGEMENT_LINE_Y - (note.timing - currentTime) / 2;
+      const y = this.scaledJudgementLineY - (note.timing - currentTime) / 2 * (this.canvas.height / CANVAS_HEIGHT);
 
       this.ctx.fillStyle = LANE_COLORS[note.lane];
       if (note.type === NoteType.SHORT) {
-        this.ctx.fillRect(note.lane * LANE_WIDTH, y - 20, LANE_WIDTH, 40);
+        const noteHeight = 40 * this.scale;
+        this.ctx.fillRect(
+          note.lane * this.scaledLaneWidth,
+          y - noteHeight / 2,
+          this.scaledLaneWidth,
+          noteHeight
+        );
       } else {
         const duration = note.duration || 0;
-        const height = duration / 2;
+        const height = duration / 2 * (this.canvas.height / CANVAS_HEIGHT);
 
         if (note.longNoteState === LongNoteState.HOLDING) {
           this.ctx.globalAlpha = 1;
@@ -696,9 +724,9 @@ export class GameEngine {
         }
 
         this.ctx.fillRect(
-          note.lane * LANE_WIDTH,
+          note.lane * this.scaledLaneWidth,
           y - height,
-          LANE_WIDTH,
+          this.scaledLaneWidth,
           height
         );
       }
@@ -714,10 +742,10 @@ export class GameEngine {
 
     // 점수, 콤보 그리기
     this.ctx.fillStyle = "#ffffff";
-    this.ctx.font = "24px Arial";
+    this.ctx.font = `${24 * this.scale}px Arial`;
     this.ctx.textAlign = "left";
-    this.ctx.fillText(`Score: ${this.score}`, 10, 30);
-    this.ctx.fillText(`Combo: ${this.combo}`, 10, 60);
+    this.ctx.fillText(`Score: ${this.score}`, 10 * this.scale, 30 * this.scale);
+    this.ctx.fillText(`Combo: ${this.combo}`, 10 * this.scale, 60 * this.scale);
   }
 
   private update(timestamp: number) {
@@ -752,9 +780,9 @@ export class GameEngine {
     }
 
     this.activeNotes = this.activeNotes.filter((note) => {
-      const noteY = JUDGEMENT_LINE_Y - (note.timing - currentTime) / 2;
+      const noteY = this.scaledJudgementLineY - (note.timing - currentTime) / 2 * (this.canvas.height / CANVAS_HEIGHT);
 
-      if (noteY > JUDGEMENT_LINE_Y + PASSED_LINE_Y) {
+      if (noteY > this.scaledJudgementLineY + this.scaledPassedLineY) {
         if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
           this.registerMiss();
           return false;
@@ -766,7 +794,7 @@ export class GameEngine {
         return currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
       }
 
-      return noteY <= JUDGEMENT_LINE_Y + PASSED_LINE_Y;
+      return noteY <= this.scaledJudgementLineY + this.scaledPassedLineY;
     });
 
     this.draw();

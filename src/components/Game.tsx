@@ -14,8 +14,10 @@ import { MusicList } from "./musicList/MusicList";
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
+  const [canvasSize, setCanvasSize] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
   const isSupportedBrowser = useBrowserCheck();
   const { playerName, setPlayerName, saveScore } = useGameScore();
@@ -34,6 +36,42 @@ function Game() {
     missCount,
   } = useGame(canvasRef, audioRef);
   const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } = useGameAudio(audioRef);
+
+  // 캔버스 크기 조정
+  useEffect(() => {
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      
+      const MAX_HEIGHT = CANVAS_HEIGHT;
+      const ORIGINAL_ASPECT_RATIO = CANVAS_WIDTH / CANVAS_HEIGHT;
+      
+      const containerWidth = containerRef.current.clientWidth;
+      const availableHeight = Math.min(containerRef.current.clientHeight, MAX_HEIGHT);
+      
+      // 너비 기준으로 계산했을 때의 크기
+      const widthBasedSize = {
+        width: containerWidth,
+        height: containerWidth / ORIGINAL_ASPECT_RATIO
+      };
+      
+      // 높이 기준으로 계산했을 때의 크기
+      const heightBasedSize = {
+        width: availableHeight * ORIGINAL_ASPECT_RATIO,
+        height: availableHeight
+      };
+      
+      // 둘 중 더 작은 크기를 선택 (컨테이너를 벗어나지 않는 크기)
+      const finalSize = widthBasedSize.height <= availableHeight
+        ? widthBasedSize
+        : heightBasedSize;
+      
+      setCanvasSize(finalSize);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 키보드 이벤트 핸들러
   useEffect(() => {
@@ -56,7 +94,7 @@ function Game() {
     if (!selectedMusic) return;
 
     setSelectedMusicId(musicId);
-    setCanvasKey(prev => prev + 1); // 새로운 key 값 설정
+    setCanvasKey(prev => prev + 1);
     
     loadAudio();
     await playAudio();
@@ -85,13 +123,17 @@ function Game() {
   }
 
   return (
-    <div className={s.gameContainer}>
+    <div ref={containerRef} className={s.gameContainer}>
       <canvas
         key={canvasKey}
         ref={canvasRef}
         className={s.gameCanvas}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
+        width={canvasSize.width}
+        height={canvasSize.height}
+        style={{
+          width: canvasSize.width,
+          height: canvasSize.height
+        }}
       />
 
       {gameState === "idle" && (
