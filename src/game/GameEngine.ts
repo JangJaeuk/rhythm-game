@@ -28,6 +28,32 @@ import {
 } from "./types";
 import { measureAudioLatency } from "./utils";
 
+// 타입 정의
+interface EffectParticle {
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  size: number;
+  color: string;
+  life: number;
+}
+
+interface BackgroundParticle {
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
+}
+
+interface Effect {
+  x: number;
+  y: number;
+  particles: EffectParticle[];
+  timestamp: number;
+}
+
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -358,9 +384,62 @@ export class GameEngine {
     timestamp: number;
   }> = [];
 
+  // 객체 풀 추가
+  private static readonly EFFECT_PARTICLE_POOL_SIZE = 200;
+  private static readonly BACKGROUND_PARTICLE_POOL_SIZE = 50;
+  private static readonly EFFECT_POOL_SIZE = 20;
+  
+  private effectParticlePool: EffectParticle[] = [];
+  private backgroundParticlePool: BackgroundParticle[] = [];
+  private effectPool: Effect[] = [];
+  private particles: BackgroundParticle[] = [];
+
+  private getEffectParticleFromPool(): EffectParticle {
+    return this.effectParticlePool.pop() || {
+      x: 0, y: 0, dx: 0, dy: 0,
+      size: 0, color: '', life: 0
+    };
+  }
+
+  private returnEffectParticleToPool(particle: EffectParticle) {
+    if (this.effectParticlePool.length < GameEngine.EFFECT_PARTICLE_POOL_SIZE) {
+      this.effectParticlePool.push(particle);
+    }
+  }
+
+  private getBackgroundParticleFromPool(): BackgroundParticle {
+    return this.backgroundParticlePool.pop() || {
+      x: 0, y: 0,
+      size: 0, speed: 0, opacity: 0
+    };
+  }
+
+  private returnBackgroundParticleToPool(particle: BackgroundParticle) {
+    if (this.backgroundParticlePool.length < GameEngine.BACKGROUND_PARTICLE_POOL_SIZE) {
+      this.backgroundParticlePool.push(particle);
+    }
+  }
+
+  private getEffectFromPool(): Effect {
+    return this.effectPool.pop() || {
+      x: 0, y: 0,
+      particles: [],
+      timestamp: 0
+    };
+  }
+
+  private returnEffectToPool(effect: Effect) {
+    if (this.effectPool.length < GameEngine.EFFECT_POOL_SIZE) {
+      effect.particles.length = 0;  // 배열 재사용을 위해 비우기
+      this.effectPool.push(effect);
+    }
+  }
+
   private createNoteHitEffect(lane: number, judgment: "PERFECT" | "GOOD" | "NORMAL" | null) {
-    const x = (lane + 0.5) * this.scaledLaneWidth;
-    const y = this.scaledJudgementLineY;
+    const effect = this.getEffectFromPool();
+    effect.x = (lane + 0.5) * this.scaledLaneWidth;
+    effect.y = this.scaledJudgementLineY;
+    effect.timestamp = performance.now();
     
     // 판정에 따른 파티클 설정
     const particleCount = judgment === "PERFECT" ? 20 : judgment === "GOOD" ? 15 : 10;
@@ -369,29 +448,24 @@ export class GameEngine {
     const color = judgment === "PERFECT" ? LANE_COLORS[lane] : 
                  judgment === "GOOD" ? '#88ff88' : '#4488ff';
 
-    const particles = [];
-    
-    // 원형으로 퍼지는 파티클 생성
+    // 파티클 생성 시 객체 풀 사용
     for (let i = 0; i < particleCount; i++) {
       const angle = (Math.PI * 2 * i) / particleCount;
       const speed = baseSpeed * (0.8 + Math.random() * 0.4);
-      particles.push({
-        x: x,
-        y: y,
-        dx: Math.cos(angle) * speed,
-        dy: Math.sin(angle) * speed,
-        size: baseSize * (0.8 + Math.random() * 0.4),
-        color: color,
-        life: 1.0
-      });
+      
+      const particle = this.getEffectParticleFromPool();
+      particle.x = effect.x;
+      particle.y = effect.y;
+      particle.dx = Math.cos(angle) * speed;
+      particle.dy = Math.sin(angle) * speed;
+      particle.size = baseSize * (0.8 + Math.random() * 0.4);
+      particle.color = color;
+      particle.life = 1.0;
+      
+      effect.particles.push(particle);
     }
 
-    this.noteHitEffects.push({
-      x,
-      y,
-      particles,
-      timestamp: performance.now()
-    });
+    this.noteHitEffects.push(effect);
   }
 
   private updateNoteHitEffects() {
@@ -423,6 +497,8 @@ export class GameEngine {
             }
             particleWriteIndex++;
             hasLiveParticle = true;
+          } else {
+            this.returnEffectParticleToPool(particle);
           }
         }
         
@@ -433,7 +509,13 @@ export class GameEngine {
             this.noteHitEffects[writeIndex] = effect;
           }
           writeIndex++;
+        } else {
+          this.returnEffectToPool(effect);
         }
+      } else {
+        // 수명이 다한 이펙트의 모든 파티클을 풀에 반환
+        effect.particles.forEach(particle => this.returnEffectParticleToPool(particle));
+        this.returnEffectToPool(effect);
       }
     }
     
@@ -952,26 +1034,18 @@ export class GameEngine {
     }
   }
 
-  private particles: Array<{
-    x: number;
-    y: number;
-    size: number;
-    speed: number;
-    opacity: number;
-  }> = [];
-
   private initializeParticles() {
     const particleCount = 50;
     this.particles = [];
 
     for (let i = 0; i < particleCount; i++) {
-      this.particles.push({
-        x: Math.random() * this.canvas.width,
-        y: Math.random() * this.canvas.height,
-        size: Math.random() * 3 + 1,
-        speed: Math.random() * 0.5 + 0.2,
-        opacity: Math.random() * 0.5 + 0.3
-      });
+      const particle = this.getBackgroundParticleFromPool();
+      particle.x = Math.random() * this.canvas.width;
+      particle.y = Math.random() * this.canvas.height;
+      particle.size = Math.random() * 3 + 1;
+      particle.speed = Math.random() * 0.5 + 0.2;
+      particle.opacity = Math.random() * 0.5 + 0.3;
+      this.particles.push(particle);
     }
   }
 
@@ -1297,5 +1371,26 @@ export class GameEngine {
     } catch (error) {
       console.error("Failed to initialize audio base:", error);
     }
+  }
+
+  // 클린업 처리 개선
+  public destroy() {
+    // 모든 파티클과 이펙트를 풀에 반환
+    this.noteHitEffects.forEach(effect => {
+      effect.particles.forEach(particle => this.returnEffectParticleToPool(particle));
+      this.returnEffectToPool(effect);
+    });
+
+    this.particles.forEach(particle => this.returnBackgroundParticleToPool(particle));
+    
+    // 배열 비우기
+    this.noteHitEffects.length = 0;
+    this.particles.length = 0;
+    this.comboEffects.length = 0;
+
+    // 객체 풀 초기화
+    this.effectParticlePool = [];
+    this.backgroundParticlePool = [];
+    this.effectPool = [];
   }
 }

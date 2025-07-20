@@ -63,6 +63,7 @@ export function useGame(
     return () => {
       if (gameEngine) {
         gameEngine.stop();
+        gameEngine.destroy();
       }
     };
   }, [gameEngine]);
