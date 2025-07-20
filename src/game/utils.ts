@@ -45,27 +45,31 @@ export function getNotes(musicId: string): Note[] {
 export async function measureAudioLatency(
   audioContext: AudioContext,
 ): Promise<number> {
-  return await new Promise<number>((resolve) => {
+  return new Promise((resolve) => {
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
-    gainNode.gain.value = 0.001; // 거의 무음
+    gainNode.gain.value = 0.01;
 
     oscillator.frequency.value = 440;
     oscillator.connect(gainNode).connect(audioContext.destination);
 
-    const startTime = audioContext.currentTime;
-    const performanceStart = performance.now();
+    // JS 시간과 오디오 시간의 차이 보정
+    const audioTimeInMs = audioContext.currentTime * 1000;
+    const jsNow = performance.now();
+    const timeOffset = jsNow - audioTimeInMs; // 두 시계 간의 차이
+
+    const startTime = audioContext.currentTime + 0.1; // 100ms 이후 실행 예약
+    const toneDuration = 0.1;
 
     oscillator.start(startTime);
-    oscillator.stop(startTime + 0.1);
+    oscillator.stop(startTime + toneDuration);
 
     oscillator.onended = () => {
-      const endPerformance = performance.now();
-      const measuredLatency = endPerformance - performanceStart - 100;
-      const clamped = Math.max(0, measuredLatency);
+      const jsEndTime = performance.now();
+      const expectedEndTime = (startTime + toneDuration) * 1000 + timeOffset;
+      const latency = jsEndTime - expectedEndTime;
 
-      resolve(clamped);
+      resolve(Math.max(0, latency));
     };
   });
 }

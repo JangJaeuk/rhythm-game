@@ -181,42 +181,51 @@ export class GameEngine {
     const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
+    // 해당 레인의 판정 가능한 노트들 찾기
     const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
+    
+    // 판정 범위 내의 노트들 중 가장 가까운 노트 찾기
+    let closestNote: Note | null = null;
+    let minTimeDiff = Infinity;
 
     for (const note of notesInLane) {
-      // 타이밍 구하기 (현재 시간 - 키를 누르는 타이밍)
       const timeDiff = note.timing - currentTime;
-
-      // 짧은 노트인 경우
-      if (note.type === NoteType.SHORT) {
-        // 판정 범위에 있는 노트인지 확인
-        if (this.getIsJudgementRange(timeDiff)) {
-          // 판정
-          this.judgeNote(timeDiff);
-          // 판정이 노멀 이상이면 액티브 효과 주기
-          if (this.getIsEffectiveNodeRange(timeDiff))
-            this.activateLaneEffect(lane);
-          // 액티브 노트 목록에서 제거
-          this.activeNotes = this.activeNotes.filter((n) => n !== note);
-          break;
+      
+      // 판정 범위 안에 있는 노트 중에서
+      if (this.getIsJudgementRange(timeDiff)) {
+        // 가장 가까운 노트 찾기
+        const absTimeDiff = Math.abs(timeDiff);
+        if (absTimeDiff < Math.abs(minTimeDiff)) {
+          minTimeDiff = timeDiff;
+          closestNote = note;
         }
       }
+    }
+
+    // 가장 가까운 노트 판정
+    if (closestNote) {
+      if (closestNote.type === NoteType.SHORT) {
+        // 판정
+        this.judgeNote(minTimeDiff);
+        // 판정이 노멀 이상이면 액티브 효과 주기
+        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
+          this.activateLaneEffect(lane);
+        }
+        // 액티브 노트 목록에서 제거
+        this.activeNotes = this.activeNotes.filter((n) => n !== closestNote);
+      }
       // 긴 노트이면서 아직 안 눌렀을 때
-      else if (note.type === NoteType.LONG && !note.isHeld) {
-        // 판정 범위에 있는 노트인지 확인
-        if (this.getIsJudgementRange(timeDiff)) {
-          // 판정
-          this.judgeNote(timeDiff);
-          // 판정이 노멀 이상인 경우
-          if (this.getIsEffectiveNodeRange(timeDiff)) {
-            // 액티브 효과 주기
-            this.activateLaneEffect(lane, true);
-            // 누른 상태로 변경
-            note.isHeld = true;
-            note.longNoteState = LongNoteState.HOLDING;
-            this.lastLongNoteUpdate[note.lane] = currentTime;
-          }
-          break;
+      else if (closestNote.type === NoteType.LONG && !closestNote.isHeld) {
+        // 판정
+        this.judgeNote(minTimeDiff);
+        // 판정이 노멀 이상인 경우
+        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
+          // 액티브 효과 주기
+          this.activateLaneEffect(lane, true);
+          // 누른 상태로 변경
+          closestNote.isHeld = true;
+          closestNote.longNoteState = LongNoteState.HOLDING;
+          this.lastLongNoteUpdate[closestNote.lane] = currentTime;
         }
       }
     }
