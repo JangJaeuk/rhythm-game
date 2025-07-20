@@ -1313,6 +1313,7 @@ export class GameEngine {
 
   static async initializeAudioBase(audio: HTMLAudioElement) {
     try {
+      console.log("Starting audio initialization...");
       // 이미 초기화되어 있고 같은 오디오 엘리먼트인 경우
       if (
         GameEngine.connectedAudioElement === audio &&
@@ -1320,6 +1321,7 @@ export class GameEngine {
       ) {
         console.log("Reusing existing audio connection");
         if (!GameEngine.latency) {
+          console.log("Measuring latency for existing connection...");
           GameEngine.latency = await measureAudioLatency(
             GameEngine.audioContext!,
           );
@@ -1327,6 +1329,7 @@ export class GameEngine {
         return;
       }
 
+      console.log("Creating new audio connection...");
       // 기존 연결 해제
       if (GameEngine.audioSource) {
         GameEngine.audioSource.disconnect();
@@ -1340,10 +1343,13 @@ export class GameEngine {
         !GameEngine.audioContext ||
         GameEngine.audioContext.state === "closed"
       ) {
+        console.log("Creating new AudioContext...");
         GameEngine.audioContext = new AudioContext();
+        console.log("AudioContext state:", GameEngine.audioContext.state);
       }
 
       try {
+        console.log("Setting up audio nodes...");
         GameEngine.analyser = GameEngine.audioContext.createAnalyser();
         GameEngine.audioSource =
           GameEngine.audioContext.createMediaElementSource(audio);
@@ -1361,6 +1367,7 @@ export class GameEngine {
         GameEngine.isAudioInitialized = true;
 
         // 레이턴시 측정
+        console.log("Starting latency measurement...");
         GameEngine.latency = await measureAudioLatency(GameEngine.audioContext);
         console.log("Measured latency:", GameEngine.latency, "ms");
       } catch (error) {
@@ -1371,6 +1378,7 @@ export class GameEngine {
         ) {
           console.log("Audio element already connected, reusing connection");
           if (!GameEngine.latency) {
+            console.log("Measuring latency for reused connection...");
             GameEngine.latency = await measureAudioLatency(
               GameEngine.audioContext,
             );
