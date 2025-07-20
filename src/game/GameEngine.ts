@@ -731,9 +731,89 @@ export class GameEngine {
     );
   }
 
+  private drawReactiveBackground() {
+    if (!GameEngine.analyser || !this.dataArray) return;
+
+    try {
+      GameEngine.analyser.getByteFrequencyData(this.dataArray);
+      const intensity = this.processFrequencyData(this.dataArray, 1)[0] / 255;
+      
+      // 배경 그라데이션
+      const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+      const hue = (Date.now() / 50) % 360; // 시간에 따라 색상 변화
+      
+      gradient.addColorStop(0, `hsla(${hue}, 70%, 5%, 1)`);
+      gradient.addColorStop(0.5, `hsla(${hue + 30}, 70%, ${5 + intensity * 10}%, 1)`);
+      gradient.addColorStop(1, `hsla(${hue + 60}, 70%, 5%, 1)`);
+      
+      this.ctx.fillStyle = gradient;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      // 파티클 효과
+      this.updateBackgroundParticles();
+      this.drawBackgroundParticles();
+
+    } catch (error) {
+      console.error("Error in drawReactiveBackground:", error);
+    }
+  }
+
+  private particles: Array<{
+    x: number;
+    y: number;
+    size: number;
+    speed: number;
+    opacity: number;
+  }> = [];
+
+  private initializeParticles() {
+    const particleCount = 50;
+    this.particles = [];
+
+    for (let i = 0; i < particleCount; i++) {
+      this.particles.push({
+        x: Math.random() * this.canvas.width,
+        y: Math.random() * this.canvas.height,
+        size: Math.random() * 3 + 1,
+        speed: Math.random() * 0.5 + 0.2,
+        opacity: Math.random() * 0.5 + 0.3
+      });
+    }
+  }
+
+  private updateBackgroundParticles() {
+    if (this.particles.length === 0) {
+      this.initializeParticles();
+    }
+
+    const intensity = this.processFrequencyData(this.dataArray!, 1)[0] / 255;
+    
+    this.particles.forEach(particle => {
+      particle.y -= particle.speed * (1 + intensity);
+      
+      // 화면 밖으로 나가면 아래에서 다시 시작
+      if (particle.y < 0) {
+        particle.y = this.canvas.height;
+        particle.x = Math.random() * this.canvas.width;
+      }
+    });
+  }
+
+  private drawBackgroundParticles() {
+    this.particles.forEach(particle => {
+      this.ctx.beginPath();
+      this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
+      this.ctx.fill();
+    });
+  }
+
   // 기존 draw 함수 수정
   private draw() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 배경 효과 그리기
+    this.drawReactiveBackground();
 
     for (let i = 0; i < LANE_COUNT; i++) {
       // 1. 레인 경계선 그리기
