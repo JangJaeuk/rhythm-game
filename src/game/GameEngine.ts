@@ -125,10 +125,13 @@ export class GameEngine {
   }
 
   private touchLaneMap: Map<number, number> = new Map();
-  // 각 레인의 마지막 터치 시간을 저장
-  private lastTouchTime: { [key: number]: number } = {};
-  // 터치 간격 임계값 (밀리초)
-  private readonly TOUCH_THRESHOLD = 32;
+  // 각 레인의 활성화된 터치 수를 추적
+  private activeTouchesPerLane: number[] = new Array(LANE_COUNT).fill(0);
+
+  // 터치 입력용 판정 범위 (키보드보다 더 엄격하게)
+  private getIsTouchJudgementRange(timeDiff: number) {
+    return timeDiff >= -NORMAL_RANGE/2 && timeDiff <= NORMAL_RANGE/2;
+  }
 
   // 터치 시작 처리
   public handleTouchStart(touchId: number, x: number) {
@@ -136,17 +139,62 @@ export class GameEngine {
     
     const lane = this.getLaneFromPosition(x);
     if (lane >= 0 && lane < LANE_COUNT) {
-      const currentTime = performance.now();
-      const lastTime = this.lastTouchTime[lane] || 0;
-
-      // 같은 레인의 이전 터치와의 시간 간격이 임계값보다 작으면 무시
-      if (currentTime - lastTime < this.TOUCH_THRESHOLD) {
-        return;
-      }
-
       this.touchLaneMap.set(touchId, lane);
-      this.lastTouchTime[lane] = currentTime;
-      this.handleKeyPress(lane);
+      this.activeTouchesPerLane[lane]++;
+      
+      // 레인의 첫 번째 터치일 때만 키 입력 처리
+      if (this.activeTouchesPerLane[lane] === 1) {
+        this.handleTouchPress(lane);  // 새로운 터치 전용 핸들러 사용
+      }
+    }
+  }
+
+  private handleTouchPress(lane: number) {
+    // 레인 백그라운드
+    this.activateLaneBackgroundEffect(lane);
+
+    // 오디오 시간 기준으로 현재 시간 계산
+    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentTime = currentAudioTime * 1000;
+
+    // 해당 레인의 판정 가능한 노트들 찾기
+    const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
+    
+    // 판정 범위 내의 노트들 중 가장 가까운 노트 찾기
+    let closestNote: Note | null = null;
+    let minTimeDiff = Infinity;
+
+    for (const note of notesInLane) {
+      const timeDiff = note.timing - currentTime;
+      
+      // 터치용 판정 범위 사용
+      if (this.getIsTouchJudgementRange(timeDiff)) {
+        const absTimeDiff = Math.abs(timeDiff);
+        if (absTimeDiff < Math.abs(minTimeDiff)) {
+          minTimeDiff = timeDiff;
+          closestNote = note;
+        }
+      }
+    }
+
+    // 가장 가까운 노트 판정
+    if (closestNote) {
+      if (closestNote.type === NoteType.SHORT) {
+        this.judgeNote(minTimeDiff);
+        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
+          this.activateLaneEffect(lane);
+        }
+        this.activeNotes = this.activeNotes.filter((n) => n !== closestNote);
+      }
+      else if (closestNote.type === NoteType.LONG && !closestNote.isHeld) {
+        this.judgeNote(minTimeDiff);
+        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
+          this.activateLaneEffect(lane, true);
+          closestNote.isHeld = true;
+          closestNote.longNoteState = LongNoteState.HOLDING;
+          this.lastLongNoteUpdate[closestNote.lane] = currentTime;
+        }
+      }
     }
   }
 
@@ -156,13 +204,13 @@ export class GameEngine {
     
     const lane = this.touchLaneMap.get(touchId);
     if (lane !== undefined) {
-      const currentTime = performance.now();
-      const lastTime = this.lastTouchTime[lane] || 0;
-
-      // 터치 종료도 시간 간격을 체크
-      if (currentTime - lastTime >= this.TOUCH_THRESHOLD) {
+      this.activeTouchesPerLane[lane] = Math.max(0, this.activeTouchesPerLane[lane] - 1);
+      
+      // 레인의 마지막 터치가 끝났을 때만 키 해제 처리
+      if (this.activeTouchesPerLane[lane] === 0) {
         this.handleKeyRelease(lane);
       }
+      
       this.touchLaneMap.delete(touchId);
     }
   }
@@ -238,14 +286,14 @@ export class GameEngine {
   public stop() {
     this.isRunning = false;
     this.touchLaneMap.clear();
-    this.lastTouchTime = {};
+    this.activeTouchesPerLane.fill(0);
     this.reset();
   }
 
   public pause() {
     this.isPaused = true;
     this.touchLaneMap.clear();
-    this.lastTouchTime = {};
+    this.activeTouchesPerLane.fill(0);
   }
 
   public resume() {
