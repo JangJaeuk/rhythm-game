@@ -46,6 +46,7 @@ export async function measureAudioLatency(
   audioContext: AudioContext,
 ): Promise<number> {
   return new Promise((resolve) => {
+    console.log("Starting latency measurement process...");
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
     gainNode.gain.value = 0.01;
@@ -58,17 +59,28 @@ export async function measureAudioLatency(
     const jsNow = performance.now();
     const timeOffset = jsNow - audioTimeInMs; // 두 시계 간의 차이
 
+    console.log("Audio time offset:", timeOffset, "ms");
+
     const startTime = audioContext.currentTime + 0.1; // 100ms 이후 실행 예약
     const toneDuration = 0.1;
 
+    console.log("Scheduling oscillator - Start:", startTime, "Duration:", toneDuration);
     oscillator.start(startTime);
     oscillator.stop(startTime + toneDuration);
 
+    // 타임아웃 설정 (1초)
+    const timeoutId = setTimeout(() => {
+      console.log("Latency measurement timed out, using fallback value");
+      resolve(0); // 타임아웃 시 기본값 사용
+    }, 1000);
+
     oscillator.onended = () => {
+      clearTimeout(timeoutId);
       const jsEndTime = performance.now();
       const expectedEndTime = (startTime + toneDuration) * 1000 + timeOffset;
       const latency = jsEndTime - expectedEndTime;
 
+      console.log("Oscillator ended - Expected:", expectedEndTime, "Actual:", jsEndTime);
       resolve(Math.max(0, latency));
     };
   });
