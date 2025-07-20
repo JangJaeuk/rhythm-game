@@ -1087,141 +1087,152 @@ export class GameEngine {
 
   // 기존 draw 함수 수정
   private draw() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const ctx = this.ctx;
+    const scale = this.scale;
+    const scaledLaneWidth = this.scaledLaneWidth;
+    const scaledJudgementLineY = this.scaledJudgementLineY;
+    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentTime = currentAudioTime * 1000;
+
+    // 전체 상태 한 번만 저장
+    ctx.save();
+    
+    // 캔버스 초기화
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // 배경 효과 그리기
     this.drawReactiveBackground();
 
-    for (let i = 0; i < LANE_COUNT; i++) {
-      // 1. 레인 경계선 그리기
-      if (i < LANE_COUNT - 1) {
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.globalAlpha = 0.2;
-        this.ctx.strokeStyle = "#fff";
-        this.ctx.moveTo((i + 1) * this.scaledLaneWidth, 0);
-        this.ctx.lineTo((i + 1) * this.scaledLaneWidth, this.canvas.height);
-        this.ctx.stroke();
-      }
+    // 레인 그리기 - 상태 변경 최소화
+    ctx.beginPath();
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1;
+    
+    // 레인 경계선 한 번에 그리기
+    for (let i = 1; i < LANE_COUNT; i++) {
+      const x = i * scaledLaneWidth;
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, this.canvas.height);
+    }
+    ctx.stroke();
 
-      // 2. 키 누른 구간 액티브 효과
+    // 레인 효과 그리기 - 상태 그룹화
+    for (let i = 0; i < LANE_COUNT; i++) {
+      // 레인 배경 효과
       if (this.laneBackgroundEffects[i].active) {
-        // 그라데이션 생성
-        const gradient = this.ctx.createLinearGradient(
-          i * this.scaledLaneWidth,
+        const gradient = ctx.createLinearGradient(
+          i * scaledLaneWidth,
           0,
-          this.scaledLaneWidth,
+          scaledLaneWidth,
           this.canvas.height,
         );
         gradient.addColorStop(0, "#000");
         gradient.addColorStop(1, LANE_COLORS[i]);
 
-        // 그라데이션을 fillStyle에 설정
-        this.ctx.fillStyle = gradient;
-
-        // 사각형 그리기
-        this.ctx.globalAlpha = 0.2;
-        this.ctx.fillRect(
-          i * this.scaledLaneWidth,
+        ctx.fillStyle = gradient;
+        ctx.globalAlpha = 0.2;
+        ctx.fillRect(
+          i * scaledLaneWidth,
           0,
-          this.scaledLaneWidth,
+          scaledLaneWidth,
           this.canvas.height,
         );
       }
-
-      // 3. 노트 떨어지는 타이밍에 맞춰 눌렀을 때 효과
-      this.ctx.globalAlpha = 1;
-      this.ctx.strokeStyle = LANE_COLORS[i];
-      this.ctx.lineWidth = this.laneEffects[i].active
-        ? 10 * this.scale
-        : 4 * this.scale;
-
-      if (this.laneEffects[i].active) {
-        this.ctx.shadowBlur = 15 * this.scale;
-        this.ctx.shadowColor = LANE_COLORS[i];
-      } else {
-        this.ctx.shadowBlur = 0;
-      }
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(i * this.scaledLaneWidth, this.scaledJudgementLineY);
-      this.ctx.lineTo(
-        (i + 1) * this.scaledLaneWidth,
-        this.scaledJudgementLineY,
-      );
-      this.ctx.stroke();
     }
 
-    this.ctx.shadowBlur = 0;
+    // 판정선 효과 - 상태 그룹화
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < LANE_COUNT; i++) {
+      const isActive = this.laneEffects[i].active;
+      
+      // 동일한 상태끼리 그룹화
+      if (isActive) {
+        ctx.strokeStyle = LANE_COLORS[i];
+        ctx.lineWidth = 10 * scale;
+        ctx.shadowBlur = 15 * scale;
+        ctx.shadowColor = LANE_COLORS[i];
+      } else {
+        ctx.strokeStyle = LANE_COLORS[i];
+        ctx.lineWidth = 4 * scale;
+        ctx.shadowBlur = 0;
+      }
 
-    // 오디오 시간을 기준으로 게임 시간 계산
-    const currentAudioTime =
-      (this.audio?.currentTime || 0) - this.audioStartTime;
-    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+      ctx.beginPath();
+      ctx.moveTo(i * scaledLaneWidth, scaledJudgementLineY);
+      ctx.lineTo((i + 1) * scaledLaneWidth, scaledJudgementLineY);
+      ctx.stroke();
+    }
 
-    // 노트 그리기
+    // 노트 그리기 - 상태 그룹화
+    ctx.shadowBlur = 0;
     for (const note of this.activeNotes) {
-      const y =
-        this.scaledJudgementLineY -
+      const y = scaledJudgementLineY -
         ((note.timing - currentTime) / 2) *
-          (this.canvas.height / CANVAS_HEIGHT);
+        (this.canvas.height / CANVAS_HEIGHT);
 
-      this.ctx.fillStyle = LANE_COLORS[note.lane];
+      ctx.fillStyle = LANE_COLORS[note.lane];
+      
       if (note.type === NoteType.SHORT) {
-        const noteHeight = 40 * this.scale;
-        this.ctx.fillRect(
-          note.lane * this.scaledLaneWidth,
+        const noteHeight = 40 * scale;
+        ctx.fillRect(
+          note.lane * scaledLaneWidth,
           y - noteHeight / 2,
-          this.scaledLaneWidth,
+          scaledLaneWidth,
           noteHeight,
         );
       } else {
         const duration = note.duration || 0;
         const height = (duration / 2) * (this.canvas.height / CANVAS_HEIGHT);
 
-        if (note.longNoteState === LongNoteState.HOLDING) {
-          this.ctx.globalAlpha = 1;
-        } else if (note.longNoteState === LongNoteState.MISSED) {
-          this.ctx.globalAlpha = 0.3;
-        } else {
-          this.ctx.globalAlpha = 0.8;
-        }
+        // 롱노트 상태에 따른 투명도 설정
+        ctx.globalAlpha = note.longNoteState === LongNoteState.HOLDING ? 1 :
+                         note.longNoteState === LongNoteState.MISSED ? 0.3 : 0.8;
 
-        this.ctx.fillRect(
-          note.lane * this.scaledLaneWidth,
+        ctx.fillRect(
+          note.lane * scaledLaneWidth,
           y - height,
-          this.scaledLaneWidth,
+          scaledLaneWidth,
           height,
         );
       }
     }
 
-    // 비주얼라이저 그리기 (콤보와 점수 사이에)
+    // UI 요소 그리기 - 공통 상태 설정
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.textAlign = "left";
+    ctx.font = `${24 * scale}px Arial`;
+    ctx.fillStyle = "#ffffff";
+
+    // 점수 및 콤보 표시
+    ctx.fillText(`Score: ${this.score}`, 10 * scale, 30 * scale);
+    ctx.fillText(`Combo: ${this.combo}`, 10 * scale, 60 * scale);
+    ctx.fillText(`Bonus: x${this.getComboMultiplier()}`, 10 * scale, 90 * scale);
+
+    // 비주얼라이저 그리기
     if (this.isRunning) {
       this.drawVisualizer();
     }
 
-    // 판정 표시 (기존 코드)
-    this.drawJudgment();
+    // 판정 표시
+    if (this.currentJudgment && performance.now() - this.judgmentDisplayTime < 500) {
+      this.drawJudgment();
+    }
 
-    // 점수, 콤보 그리기
-    this.ctx.fillStyle = "#ffffff";
-    this.ctx.font = `${24 * this.scale}px Arial`;
-    this.ctx.textAlign = "left";
-    this.ctx.fillText(`Score: ${this.score}`, 10 * this.scale, 30 * this.scale);
-    this.ctx.fillText(`Combo: ${this.combo}`, 10 * this.scale, 60 * this.scale);
-    this.ctx.fillText(`Bonus: x${this.getComboMultiplier()}`, 10 * this.scale, 90 * this.scale);
-
-    // 콤보 이펙트 업데이트 및 그리기
+    // 이펙트 그리기
     this.updateComboEffects();
     this.drawComboEffects();
 
-    // 일시정지 버튼 그리기
-    this.drawPauseButton();
-
-    // 노트 히트 이펙트 업데이트 및 그리기
+    // 노트 히트 이펙트
     this.updateNoteHitEffects();
     this.drawNoteHitEffects();
+
+    // 일시정지 버튼
+    this.drawPauseButton();
+
+    // 마지막에 한 번만 복원
+    ctx.restore();
   }
 
   private update(timestamp: number) {
