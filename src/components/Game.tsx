@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../game/constants/gameBase";
 import { MUSIC_LIST } from "../game/constants/music";
+import { GameEngine } from "../game/GameEngine";
 import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
@@ -16,6 +17,7 @@ function Game() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
   const [canvasSize, setCanvasSize] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
@@ -26,6 +28,7 @@ function Game() {
     pauseGame,
     resumeGame,
     exitGame,
+    startCountdown,
     gameState,
     isPaused,
     maxCombo,
@@ -107,12 +110,31 @@ function Game() {
 
   const handleMusicSelect = async (musicId: string) => {
     const selectedMusic = MUSIC_LIST.find(music => music.id === musicId);
-    if (!selectedMusic) return;
+    if (!selectedMusic || !audioRef.current) return;
 
     setSelectedMusicId(musicId);
     setCanvasKey(prev => prev + 1);
     
+    // 오디오 로드
     loadAudio();
+
+    startCountdown();
+
+    // 카운트다운과 초기화를 병렬로 처리
+    const countdownPromise = (async () => {
+      setCountdown(3);
+      for (let i = 2; i >= 0; i--) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setCountdown(i);
+      }
+    })();
+
+    const initPromise = GameEngine.initializeAudioBase(audioRef.current);
+
+    // 둘 다 완료될 때까지 대기
+    await Promise.all([countdownPromise, initPromise]);
+
+    // 이제 오디오 재생하고 게임 시작
     await playAudio();
     await waitForAudioStart();
     startGame(musicId);
@@ -155,6 +177,12 @@ function Game() {
 
       {gameState === "idle" && (
         <MusicList onSelectMusic={handleMusicSelect} />
+      )}
+      
+      {countdown && gameState === "countdown" && (
+        <div className={s.countdown}>
+          {countdown}
+        </div>
       )}
 
       {gameState === "ended" && (

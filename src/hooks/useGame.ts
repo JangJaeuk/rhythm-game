@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { GameEngine } from "../game/GameEngine";
-import { getNotes, waitForAudioRefRaf } from "../game/utils";
+import { getNotes } from "../game/utils";
 
 export function useGame(
   canvasRef: React.RefObject<HTMLCanvasElement>,
@@ -8,7 +8,7 @@ export function useGame(
 ) {
   const [gameEngine, setGameEngine] = useState<GameEngine | null>(null);
   const [gameState, setGameState] = useState<
-    "idle" | "playing" | "paused" | "ended"
+    "idle" | "playing" | "paused" | "ended" | "countdown"
   >("idle");
   const [maxCombo, setMaxCombo] = useState(0);
   const [score, setScore] = useState(0);
@@ -59,6 +59,10 @@ export function useGame(
     }
   }, [gameEngine]);
 
+  const startCountdown = useCallback(() => {
+    setGameState("countdown");
+  }, []);
+
   useEffect(() => {
     return () => {
       if (gameEngine) {
@@ -68,25 +72,13 @@ export function useGame(
     };
   }, [gameEngine]);
 
-  useEffect(() => {
-    const initAudioBase = async () => {
-      const audio = await waitForAudioRefRaf(audioRef);
-      if (!audio) {
-        console.error("Failed to initialize audio: audio element not found");
-        return;
-      }
-      await GameEngine.initializeAudioBase(audio);
-    }
-
-    initAudioBase();
-  }, []);
-
   return {
     gameEngine,
     startGame,
     pauseGame,
     resumeGame,
     exitGame,
+    startCountdown,
     gameState,
     isPaused: gameState === "paused",
     maxCombo,
