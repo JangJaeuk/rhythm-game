@@ -37,7 +37,7 @@ export class GameEngine {
   private isRunning: boolean = false;
   private isPaused: boolean = false;
   private startTime: number = 0;
-  private audioStartTime: number = 0;  // 오디오 시작 시점의 currentTime
+  private audioStartTime: number = 0; // 오디오 시작 시점의 currentTime
   private lastTimestamp: number = 0;
   private combo: number = 0;
   private currentJudgment: Judgment | null = null;
@@ -100,14 +100,14 @@ export class GameEngine {
 
   // 마우스/터치 클릭 위치로 레인 인덱스 계산
   private getLaneFromPosition(x: number): number {
-    const relativeX = x / this.scale;  // 실제 캔버스 크기를 고려한 상대 좌표
+    const relativeX = x / this.scale; // 실제 캔버스 크기를 고려한 상대 좌표
     return Math.floor(relativeX / LANE_WIDTH);
   }
 
   // 마우스/터치 입력 처리
   public handleClick(x: number) {
     if (!this.isRunning || this.isPaused) return;
-    
+
     const lane = this.getLaneFromPosition(x);
     if (lane >= 0 && lane < LANE_COUNT) {
       this.handleKeyPress(lane);
@@ -117,7 +117,7 @@ export class GameEngine {
   // 마우스/터치 릴리즈 처리
   public handleRelease(x: number) {
     if (!this.isRunning || this.isPaused) return;
-    
+
     const lane = this.getLaneFromPosition(x);
     if (lane >= 0 && lane < LANE_COUNT) {
       this.handleKeyRelease(lane);
@@ -125,92 +125,25 @@ export class GameEngine {
   }
 
   private touchLaneMap: Map<number, number> = new Map();
-  // 각 레인의 활성화된 터치 수를 추적
-  private activeTouchesPerLane: number[] = new Array(LANE_COUNT).fill(0);
-
-  // 터치 입력용 판정 범위 (키보드보다 더 엄격하게)
-  private getIsTouchJudgementRange(timeDiff: number) {
-    return timeDiff >= -NORMAL_RANGE/2 && timeDiff <= NORMAL_RANGE/2;
-  }
 
   // 터치 시작 처리
   public handleTouchStart(touchId: number, x: number) {
     if (!this.isRunning || this.isPaused) return;
-    
+
     const lane = this.getLaneFromPosition(x);
     if (lane >= 0 && lane < LANE_COUNT) {
       this.touchLaneMap.set(touchId, lane);
-      this.activeTouchesPerLane[lane]++;
-      
-      // 레인의 첫 번째 터치일 때만 키 입력 처리
-      if (this.activeTouchesPerLane[lane] === 1) {
-        this.handleTouchPress(lane);  // 새로운 터치 전용 핸들러 사용
-      }
-    }
-  }
-
-  private handleTouchPress(lane: number) {
-    // 레인 백그라운드
-    this.activateLaneBackgroundEffect(lane);
-
-    // 오디오 시간 기준으로 현재 시간 계산
-    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
-    const currentTime = currentAudioTime * 1000;
-
-    // 해당 레인의 판정 가능한 노트들 찾기
-    const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
-    
-    // 판정 범위 내의 노트들 중 가장 가까운 노트 찾기
-    let closestNote: Note | null = null;
-    let minTimeDiff = Infinity;
-
-    for (const note of notesInLane) {
-      const timeDiff = note.timing - currentTime;
-      
-      // 터치용 판정 범위 사용
-      if (this.getIsTouchJudgementRange(timeDiff)) {
-        const absTimeDiff = Math.abs(timeDiff);
-        if (absTimeDiff < Math.abs(minTimeDiff)) {
-          minTimeDiff = timeDiff;
-          closestNote = note;
-        }
-      }
-    }
-
-    // 가장 가까운 노트 판정
-    if (closestNote) {
-      if (closestNote.type === NoteType.SHORT) {
-        this.judgeNote(minTimeDiff);
-        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
-          this.activateLaneEffect(lane);
-        }
-        this.activeNotes = this.activeNotes.filter((n) => n !== closestNote);
-      }
-      else if (closestNote.type === NoteType.LONG && !closestNote.isHeld) {
-        this.judgeNote(minTimeDiff);
-        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
-          this.activateLaneEffect(lane, true);
-          closestNote.isHeld = true;
-          closestNote.longNoteState = LongNoteState.HOLDING;
-          this.lastLongNoteUpdate[closestNote.lane] = currentTime;
-        }
-      }
+      this.handleKeyPress(lane);
     }
   }
 
   // 터치 종료 처리
   public handleTouchEnd(touchId: number) {
     if (!this.isRunning || this.isPaused) return;
-    
+
     const lane = this.touchLaneMap.get(touchId);
     if (lane !== undefined) {
-      this.activeTouchesPerLane[lane] = Math.max(0, this.activeTouchesPerLane[lane] - 1);
-      
-      // 레인의 마지막 터치가 끝났을 때만 키 해제 처리
-      if (this.activeTouchesPerLane[lane] === 0) {
-        this.handleKeyRelease(lane);
-      }
-      
+      this.handleKeyRelease(lane);
       this.touchLaneMap.delete(touchId);
     }
   }
@@ -218,7 +151,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     audio: HTMLAudioElement | null,
-    onGameOver: () => void
+    onGameOver: () => void,
   ) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
@@ -261,9 +194,9 @@ export class GameEngine {
   }
 
   public setNotes(notes: Note[]) {
-    const adjustedNotes = notes.map(note => ({
-        ...note,
-        timing: note.timing + GameEngine.latency
+    const adjustedNotes = notes.map((note) => ({
+      ...note,
+      timing: note.timing + GameEngine.latency,
     }));
 
     this.notes = [...adjustedNotes].sort((a, b) => a.timing - b.timing);
@@ -282,18 +215,28 @@ export class GameEngine {
     requestAnimationFrame(this.update.bind(this));
   }
 
-  // 게임 종료나 일시정지 시 터치 맵 초기화 추가
+  // 게임 상태 초기화 시 모든 레인 이펙트도 초기화
   public stop() {
     this.isRunning = false;
     this.touchLaneMap.clear();
-    this.activeTouchesPerLane.fill(0);
     this.reset();
+
+    // 모든 레인 이펙트 초기화
+    for (let i = 0; i < LANE_COUNT; i++) {
+      this.deactivateLaneBackgroundEffect(i);
+      this.deactivateLaneEffect(i);
+    }
   }
 
   public pause() {
     this.isPaused = true;
     this.touchLaneMap.clear();
-    this.activeTouchesPerLane.fill(0);
+
+    // 모든 레인 이펙트 초기화
+    for (let i = 0; i < LANE_COUNT; i++) {
+      this.deactivateLaneBackgroundEffect(i);
+      this.deactivateLaneEffect(i);
+    }
   }
 
   public resume() {
@@ -322,19 +265,20 @@ export class GameEngine {
     this.activateLaneBackgroundEffect(lane);
 
     // 오디오 시간 기준으로 현재 시간 계산
-    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentAudioTime =
+      (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
     // 해당 레인의 판정 가능한 노트들 찾기
     const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
-    
+
     // 판정 범위 내의 노트들 중 가장 가까운 노트 찾기
     let closestNote: Note | null = null;
     let minTimeDiff = Infinity;
 
     for (const note of notesInLane) {
       const timeDiff = note.timing - currentTime;
-      
+
       // 판정 범위 안에 있는 노트 중에서
       if (this.getIsJudgementRange(timeDiff)) {
         // 가장 가까운 노트 찾기
@@ -377,7 +321,8 @@ export class GameEngine {
 
   private handleKeyRelease(lane: number) {
     // 오디오 시간 기준으로 현재 시간 계산
-    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentAudioTime =
+      (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
     const notesInLane = this.activeNotes.filter(
@@ -385,7 +330,7 @@ export class GameEngine {
         note.lane === lane &&
         note.type === NoteType.LONG &&
         note.isHeld &&
-        note.longNoteState === LongNoteState.HOLDING
+        note.longNoteState === LongNoteState.HOLDING,
     );
 
     this.deactivateLaneBackgroundEffect(lane);
@@ -448,7 +393,7 @@ export class GameEngine {
 
         // 마지막 업데이트 이후 경과한 간격 수 계산
         const intervalsPassed = Math.floor(
-          (currentTime - lastUpdate) / INTERVAL_IN_LONG_NOTE_ACTIVE
+          (currentTime - lastUpdate) / INTERVAL_IN_LONG_NOTE_ACTIVE,
         );
 
         // 경과한 각 간격을 반복 처리
@@ -572,7 +517,7 @@ export class GameEngine {
       this.ctx.fillText(
         `COMBO`,
         this.canvas.width / 2,
-        this.canvas.height / 3 - 60
+        this.canvas.height / 3 - 60,
       );
 
       // Display combo count
@@ -583,7 +528,7 @@ export class GameEngine {
       this.ctx.fillText(
         `${this.combo}`,
         this.canvas.width / 2,
-        this.canvas.height / 3
+        this.canvas.height / 3,
       );
 
       const comboMultiplier = this.getComboMultiplier();
@@ -592,7 +537,7 @@ export class GameEngine {
         this.ctx.fillText(
           `(x${comboMultiplier.toFixed(1)})`,
           this.canvas.width / 2,
-          this.canvas.height / 3 + 40
+          this.canvas.height / 3 + 40,
         );
       }
 
@@ -606,7 +551,7 @@ export class GameEngine {
       this.ctx.fillText(
         this.currentJudgment.text,
         this.canvas.width / 2,
-        this.canvas.height - this.canvas.height / 4
+        this.canvas.height - this.canvas.height / 4,
       );
 
       this.ctx.restore();
@@ -642,9 +587,10 @@ export class GameEngine {
 
         // 부드러운 애니메이션을 위한 높이 보간
         const targetHeight = this.normalizeHeight(frequencyData[i]);
-        this.previousHeights[i] = this.previousHeights[i] * (1 - this.SMOOTHING_FACTOR) + 
-                                 targetHeight * this.SMOOTHING_FACTOR;
-        
+        this.previousHeights[i] =
+          this.previousHeights[i] * (1 - this.SMOOTHING_FACTOR) +
+          targetHeight * this.SMOOTHING_FACTOR;
+
         const height = this.previousHeights[i];
 
         // 그라데이션 생성
@@ -652,7 +598,7 @@ export class GameEngine {
           centerX + Math.cos(angle) * radius,
           centerY + Math.sin(angle) * radius,
           centerX + Math.cos(angle) * (radius + height),
-          centerY + Math.sin(angle) * (radius + height)
+          centerY + Math.sin(angle) * (radius + height),
         );
 
         // 주파수에 따른 색상 계산
@@ -667,8 +613,8 @@ export class GameEngine {
 
         // 막대 그리기
         this.ctx.beginPath();
-        this.ctx.lineCap = 'round';
-        this.ctx.lineWidth = (Math.PI * radius * 2) / barCount * 0.7; // 막대 두께 조정
+        this.ctx.lineCap = "round";
+        this.ctx.lineWidth = ((Math.PI * radius * 2) / barCount) * 0.7; // 막대 두께 조정
         this.ctx.strokeStyle = gradient;
         this.ctx.moveTo(innerX, innerY);
         this.ctx.lineTo(outerX, outerY);
@@ -678,7 +624,7 @@ export class GameEngine {
       // 중앙 원 그리기
       this.ctx.beginPath();
       this.ctx.arc(centerX, centerY, radius - 3, 0, Math.PI * 2);
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      this.ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
 
@@ -688,15 +634,18 @@ export class GameEngine {
     }
   }
 
-  private processFrequencyData(data: Uint8Array, targetLength: number): number[] {
+  private processFrequencyData(
+    data: Uint8Array,
+    targetLength: number,
+  ): number[] {
     const dataLength = data.length;
-    
+
     // 비트와 멜로디 주파수 대역 분리
-    const bassStart = Math.floor(dataLength * 0.05);    // ~100Hz
-    const bassEnd = Math.floor(dataLength * 0.15);      // ~300Hz
-    const melodyStart = Math.floor(dataLength * 0.15);  // ~300Hz
-    const melodyEnd = Math.floor(dataLength * 0.4);     // ~2kHz
-    
+    const bassStart = Math.floor(dataLength * 0.05); // ~100Hz
+    const bassEnd = Math.floor(dataLength * 0.15); // ~300Hz
+    const melodyStart = Math.floor(dataLength * 0.15); // ~300Hz
+    const melodyEnd = Math.floor(dataLength * 0.4); // ~2kHz
+
     // 비트(저주파) 대역의 에너지 계산
     let bassSum = 0;
     for (let i = bassStart; i < bassEnd; i++) {
@@ -712,16 +661,19 @@ export class GameEngine {
       maxValue = Math.max(maxValue, data[i]);
     }
     const melodyAvg = melodySum / (melodyEnd - melodyStart);
-    
+
     // 비트와 멜로디 조합
     const currentIntensity = Math.max(
-      bassEnergy * 1.2,  // 비트에 가중치
-      maxValue * 0.7 + melodyAvg * 0.3
+      bassEnergy * 1.2, // 비트에 가중치
+      maxValue * 0.7 + melodyAvg * 0.3,
     );
 
     // 최대값 업데이트 (서서히 감소하는 최대값)
-    this.maxIntensity = Math.max(currentIntensity, this.maxIntensity * this.DECAY_FACTOR);
-    
+    this.maxIntensity = Math.max(
+      currentIntensity,
+      this.maxIntensity * this.DECAY_FACTOR,
+    );
+
     // 이전 값들과 비교하여 변화 감지
     this.previousIntensities.push(currentIntensity);
     if (this.previousIntensities.length > this.HISTORY_SIZE) {
@@ -731,29 +683,32 @@ export class GameEngine {
     // 변화량 계산 (최근 값들의 변동성)
     let variability = 0;
     for (let i = 1; i < this.previousIntensities.length; i++) {
-      const delta = Math.abs(this.previousIntensities[i] - this.previousIntensities[i-1]);
+      const delta = Math.abs(
+        this.previousIntensities[i] - this.previousIntensities[i - 1],
+      );
       variability += delta;
     }
     variability /= this.previousIntensities.length;
 
     // 동적 범위 조정을 위한 정규화
     const normalizedIntensity = currentIntensity / (this.maxIntensity || 1);
-    
+
     // 변화량에 따른 증폭 및 진동 효과
     const oscillation = Math.sin(Date.now() / 50) * 0.1; // 미세한 진동 추가
-    const amplificationFactor = 0.7 + (variability / 50) + oscillation;
-    
+    const amplificationFactor = 0.7 + variability / 50 + oscillation;
+
     // 최종 강도 계산 (더 부드러운 곡선)
-    const amplifiedIntensity = Math.pow(normalizedIntensity, 0.4) * 255 * amplificationFactor;
-    
+    const amplifiedIntensity =
+      Math.pow(normalizedIntensity, 0.4) * 255 * amplificationFactor;
+
     return new Array(targetLength).fill(amplifiedIntensity);
   }
 
   private normalizeHeight(value: number): number {
-    const minHeight = 2;   // 최소 높이 더 감소
-    const maxHeight = 18;  // 최대 높이 감소
+    const minHeight = 2; // 최소 높이 더 감소
+    const maxHeight = 18; // 최대 높이 감소
     const heightRange = maxHeight - minHeight;
-    
+
     // 더 부드러운 반응 곡선
     const t = value / 255;
     const smoothValue = t * t * (3 - 2 * t); // 부드러운 보간
@@ -765,7 +720,7 @@ export class GameEngine {
     y: 0,
     width: 40,
     height: 40,
-    margin: 20
+    margin: 20,
   };
 
   // 일시정지 버튼 클릭 체크
@@ -773,7 +728,9 @@ export class GameEngine {
     if (!this.isRunning || this.isPaused) return false;
 
     const scale = this.scale;
-    const buttonX = this.canvas.width - (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
+    const buttonX =
+      this.canvas.width -
+      (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
     const buttonY = this.PAUSE_BUTTON.margin * scale;
     const buttonWidth = this.PAUSE_BUTTON.width * scale;
     const buttonHeight = this.PAUSE_BUTTON.height * scale;
@@ -792,37 +749,37 @@ export class GameEngine {
 
     const scale = this.scale;
     const { width, height, margin } = this.PAUSE_BUTTON;
-    
+
     // 버튼 위치 계산
     const x = this.canvas.width - (width + margin) * scale;
     const y = margin * scale;
-    
+
     // 반투명 배경
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     this.ctx.beginPath();
     this.ctx.roundRect(x, y, width * scale, height * scale, 8 * scale);
     this.ctx.fill();
 
     // 일시정지 아이콘
-    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillStyle = "#ffffff";
     const barWidth = 4 * scale;
     const barHeight = 16 * scale;
     const barMargin = 12 * scale;
-    
+
     // 왼쪽 바
     this.ctx.fillRect(
       x + barMargin,
       y + (height * scale - barHeight) / 2,
       barWidth,
-      barHeight
+      barHeight,
     );
-    
+
     // 오른쪽 바
     this.ctx.fillRect(
       x + width * scale - barMargin - barWidth,
       y + (height * scale - barHeight) / 2,
       barWidth,
-      barHeight
+      barHeight,
     );
   }
 
@@ -849,7 +806,7 @@ export class GameEngine {
           i * this.scaledLaneWidth,
           0,
           this.scaledLaneWidth,
-          this.canvas.height
+          this.canvas.height,
         );
         gradient.addColorStop(0, "#000");
         gradient.addColorStop(1, LANE_COLORS[i]);
@@ -859,13 +816,20 @@ export class GameEngine {
 
         // 사각형 그리기
         this.ctx.globalAlpha = 0.2;
-        this.ctx.fillRect(i * this.scaledLaneWidth, 0, this.scaledLaneWidth, this.canvas.height);
+        this.ctx.fillRect(
+          i * this.scaledLaneWidth,
+          0,
+          this.scaledLaneWidth,
+          this.canvas.height,
+        );
       }
 
       // 3. 노트 떨어지는 타이밍에 맞춰 눌렀을 때 효과
       this.ctx.globalAlpha = 1;
       this.ctx.strokeStyle = LANE_COLORS[i];
-      this.ctx.lineWidth = this.laneEffects[i].active ? 10 * this.scale : 4 * this.scale;
+      this.ctx.lineWidth = this.laneEffects[i].active
+        ? 10 * this.scale
+        : 4 * this.scale;
 
       if (this.laneEffects[i].active) {
         this.ctx.shadowBlur = 15 * this.scale;
@@ -876,19 +840,26 @@ export class GameEngine {
 
       this.ctx.beginPath();
       this.ctx.moveTo(i * this.scaledLaneWidth, this.scaledJudgementLineY);
-      this.ctx.lineTo((i + 1) * this.scaledLaneWidth, this.scaledJudgementLineY);
+      this.ctx.lineTo(
+        (i + 1) * this.scaledLaneWidth,
+        this.scaledJudgementLineY,
+      );
       this.ctx.stroke();
     }
 
     this.ctx.shadowBlur = 0;
 
     // 오디오 시간을 기준으로 게임 시간 계산
-    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentAudioTime =
+      (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
     // 노트 그리기
     for (const note of this.activeNotes) {
-      const y = this.scaledJudgementLineY - (note.timing - currentTime) / 2 * (this.canvas.height / CANVAS_HEIGHT);
+      const y =
+        this.scaledJudgementLineY -
+        ((note.timing - currentTime) / 2) *
+          (this.canvas.height / CANVAS_HEIGHT);
 
       this.ctx.fillStyle = LANE_COLORS[note.lane];
       if (note.type === NoteType.SHORT) {
@@ -897,11 +868,11 @@ export class GameEngine {
           note.lane * this.scaledLaneWidth,
           y - noteHeight / 2,
           this.scaledLaneWidth,
-          noteHeight
+          noteHeight,
         );
       } else {
         const duration = note.duration || 0;
-        const height = duration / 2 * (this.canvas.height / CANVAS_HEIGHT);
+        const height = (duration / 2) * (this.canvas.height / CANVAS_HEIGHT);
 
         if (note.longNoteState === LongNoteState.HOLDING) {
           this.ctx.globalAlpha = 1;
@@ -915,7 +886,7 @@ export class GameEngine {
           note.lane * this.scaledLaneWidth,
           y - height,
           this.scaledLaneWidth,
-          height
+          height,
         );
       }
     }
@@ -953,7 +924,8 @@ export class GameEngine {
     this.lastTimestamp = timestamp;
 
     // 오디오 시간 기준으로 게임 시간 계산
-    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentAudioTime =
+      (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
 
     this.updateLaneEffects(timestamp);
@@ -971,7 +943,10 @@ export class GameEngine {
     }
 
     this.activeNotes = this.activeNotes.filter((note) => {
-      const noteY = this.scaledJudgementLineY - (note.timing - currentTime) / 2 * (this.canvas.height / CANVAS_HEIGHT);
+      const noteY =
+        this.scaledJudgementLineY -
+        ((note.timing - currentTime) / 2) *
+          (this.canvas.height / CANVAS_HEIGHT);
 
       if (noteY > this.scaledJudgementLineY + this.scaledPassedLineY) {
         if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
@@ -1014,10 +989,15 @@ export class GameEngine {
   static async initializeAudioBase(audio: HTMLAudioElement) {
     try {
       // 이미 초기화되어 있고 같은 오디오 엘리먼트인 경우
-      if (GameEngine.connectedAudioElement === audio && GameEngine.isAudioInitialized) {
+      if (
+        GameEngine.connectedAudioElement === audio &&
+        GameEngine.isAudioInitialized
+      ) {
         console.log("Reusing existing audio connection");
         if (!GameEngine.latency) {
-          GameEngine.latency = await measureAudioLatency(GameEngine.audioContext!);
+          GameEngine.latency = await measureAudioLatency(
+            GameEngine.audioContext!,
+          );
         }
         return;
       }
@@ -1031,13 +1011,17 @@ export class GameEngine {
       }
 
       // 새로운 AudioContext 생성 및 연결
-      if (!GameEngine.audioContext || GameEngine.audioContext.state === 'closed') {
+      if (
+        !GameEngine.audioContext ||
+        GameEngine.audioContext.state === "closed"
+      ) {
         GameEngine.audioContext = new AudioContext();
       }
 
       try {
         GameEngine.analyser = GameEngine.audioContext.createAnalyser();
-        GameEngine.audioSource = GameEngine.audioContext.createMediaElementSource(audio);
+        GameEngine.audioSource =
+          GameEngine.audioContext.createMediaElementSource(audio);
 
         GameEngine.audioSource.connect(GameEngine.analyser);
         GameEngine.analyser.connect(GameEngine.audioContext.destination);
@@ -1053,13 +1037,18 @@ export class GameEngine {
 
         // 레이턴시 측정
         GameEngine.latency = await measureAudioLatency(GameEngine.audioContext);
-        console.log('Measured latency:', GameEngine.latency, 'ms');
+        console.log("Measured latency:", GameEngine.latency, "ms");
       } catch (error) {
         // 이미 연결된 경우 기존 연결 재사용
-        if (error instanceof DOMException && error.name === 'InvalidStateError') {
+        if (
+          error instanceof DOMException &&
+          error.name === "InvalidStateError"
+        ) {
           console.log("Audio element already connected, reusing connection");
           if (!GameEngine.latency) {
-            GameEngine.latency = await measureAudioLatency(GameEngine.audioContext);
+            GameEngine.latency = await measureAudioLatency(
+              GameEngine.audioContext,
+            );
           }
         } else {
           throw error;
