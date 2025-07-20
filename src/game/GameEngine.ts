@@ -396,30 +396,48 @@ export class GameEngine {
 
   private updateNoteHitEffects() {
     const now = performance.now();
-    this.noteHitEffects = this.noteHitEffects.filter(effect => {
-      // 2초 이상 된 이펙트는 제거
-      if (now - effect.timestamp > 2000) return false;
-
-      effect.particles.forEach(particle => {
-        // 파티클 위치 업데이트
-        particle.x += particle.dx * 0.1;
-        particle.y += particle.dy * 0.1;
+    let writeIndex = 0;
+    
+    for (let i = 0; i < this.noteHitEffects.length; i++) {
+      const effect = this.noteHitEffects[i];
+      const age = now - effect.timestamp;
+      
+      if (age <= 2000) {
+        let hasLiveParticle = false;
+        let particleWriteIndex = 0;
         
-        // 중력 효과
-        particle.dy += 0.2;
+        for (let j = 0; j < effect.particles.length; j++) {
+          const particle = effect.particles[j];
+          
+          particle.x += particle.dx * 0.1;
+          particle.y += particle.dy * 0.1;
+          particle.dy += 0.2;
+          particle.size *= 0.95;
+          particle.dx *= 0.95;
+          particle.dy *= 0.95;
+          particle.life *= 0.95;
+          
+          if (particle.life > 0.1) {
+            if (particleWriteIndex !== j) {
+              effect.particles[particleWriteIndex] = particle;
+            }
+            particleWriteIndex++;
+            hasLiveParticle = true;
+          }
+        }
         
-        // 파티클 크기와 속도 감소
-        particle.size *= 0.95;
-        particle.dx *= 0.95;
-        particle.dy *= 0.95;
+        effect.particles.length = particleWriteIndex;
         
-        // 생명력 감소
-        particle.life *= 0.95;
-      });
-
-      // 살아있는 파티클이 있는 이펙트만 유지
-      return effect.particles.some(p => p.life > 0.1);
-    });
+        if (hasLiveParticle) {
+          if (writeIndex !== i) {
+            this.noteHitEffects[writeIndex] = effect;
+          }
+          writeIndex++;
+        }
+      }
+    }
+    
+    this.noteHitEffects.length = writeIndex;
   }
 
   private drawNoteHitEffects() {
@@ -551,16 +569,26 @@ export class GameEngine {
 
   private updateComboEffects() {
     const now = performance.now();
-    this.comboEffects = this.comboEffects.filter(effect => {
+    let writeIndex = 0;
+    
+    for (let i = 0; i < this.comboEffects.length; i++) {
+      const effect = this.comboEffects[i];
       const age = now - effect.timestamp;
-      if (age > 400) return false;  // 표시 시간 단축 (500ms → 400ms)
-
-      // 더 부드러운 애니메이션
-      effect.scale = 1.5 - (age / 400) * 0.3;  // 크기 변화 감소
-      effect.alpha = Math.max(0, 1 - age / 400);
-
-      return effect.alpha > 0;
-    });
+      
+      if (age <= 400) {
+        effect.scale = 1.5 - (age / 400) * 0.3;
+        effect.alpha = Math.max(0, 1 - age / 400);
+        
+        if (effect.alpha > 0) {
+          if (writeIndex !== i) {
+            this.comboEffects[writeIndex] = effect;
+          }
+          writeIndex++;
+        }
+      }
+    }
+    
+    this.comboEffects.length = writeIndex;
   }
 
   private drawComboEffects() {
@@ -950,19 +978,28 @@ export class GameEngine {
   private updateBackgroundParticles() {
     if (this.particles.length === 0) {
       this.initializeParticles();
+      return;
     }
 
     const intensity = this.processFrequencyData(this.dataArray!, 1)[0] / 255;
+    let writeIndex = 0;
     
-    this.particles.forEach(particle => {
+    for (let i = 0; i < this.particles.length; i++) {
+      const particle = this.particles[i];
       particle.y -= particle.speed * (1 + intensity);
       
-      // 화면 밖으로 나가면 아래에서 다시 시작
       if (particle.y < 0) {
         particle.y = this.canvas.height;
         particle.x = Math.random() * this.canvas.width;
       }
-    });
+      
+      if (writeIndex !== i) {
+        this.particles[writeIndex] = particle;
+      }
+      writeIndex++;
+    }
+    
+    this.particles.length = writeIndex;
   }
 
   private drawBackgroundParticles() {
