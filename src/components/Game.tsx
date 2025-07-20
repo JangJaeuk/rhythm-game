@@ -112,23 +112,33 @@ function Game() {
   // 터치 시작 핸들러
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
-    e.preventDefault(); // 기본 동작 방지 (스크롤 등)
+    e.preventDefault();
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
-    handleCanvasClick(x);
+    // 모든 터치 포인트에 대해 처리
+    Array.from(e.touches).forEach(touch => {
+      const x = touch.clientX - rect.left;
+      handleCanvasClick(x);
+    });
   };
 
   // 터치 종료 핸들러
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
-    e.preventDefault(); // 기본 동작 방지
+    e.preventDefault();
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const touch = e.changedTouches[0];
-    const x = touch.clientX - rect.left;
-    handleCanvasRelease(x);
+    // 종료된 터치 포인트에 대해 처리
+    Array.from(e.changedTouches).forEach(touch => {
+      const x = touch.clientX - rect.left;
+      handleCanvasRelease(x);
+    });
+  };
+
+  // 터치 이동 핸들러 (새로운 터치가 추가될 때)
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    e.preventDefault();
   };
 
   const handleMusicSelect = async (musicId: string) => {
@@ -174,12 +184,14 @@ function Game() {
         height={canvasSize.height}
         style={{
           width: canvasSize.width,
-          height: canvasSize.height
+          height: canvasSize.height,
+          touchAction: 'none'  // 브라우저 기본 터치 동작 방지
         }}
         onMouseDown={handleClick}
         onMouseUp={handleMouseUp}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
       />
 
       {gameState === "idle" && (
