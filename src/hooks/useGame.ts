@@ -71,6 +71,10 @@ export function useGame(
   useEffect(() => {
     const initAudioBase = async () => {
       const audio = await waitForAudioRefRaf(audioRef);
+      if (!audio) {
+        console.error("Failed to initialize audio: audio element not found");
+        return;
+      }
       await GameEngine.initializeAudioBase(audio);
     }
 

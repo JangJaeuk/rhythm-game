@@ -76,13 +76,23 @@ export async function measureAudioLatency(
 
 export async function waitForAudioRefRaf(
   audioRef: React.RefObject<HTMLAudioElement>,
-): Promise<HTMLAudioElement> {
+): Promise<HTMLAudioElement | null> {
   return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 50; // 약 1초 (50 프레임) 동안 시도
+
     const check = () => {
+      attempts++;
       if (audioRef.current) {
+        console.log("Audio element found after", attempts, "attempts");
         resolve(audioRef.current);
       } else {
-        requestAnimationFrame(check);
+        if (attempts >= maxAttempts) {
+          console.warn("Failed to find audio element after", attempts, "attempts");
+          resolve(null);
+        } else {
+          requestAnimationFrame(check);
+        }
       }
     };
     check();
