@@ -521,8 +521,22 @@ export class GameEngine {
   }
 
   private createComboEffect() {
-    const x = this.canvas.width * 0.5;  // 화면 중앙
-    const y = this.canvas.height * 0.25;  // 상단 25% 위치
+    // 이전 효과가 아직 활성 상태면 업데이트만 하고 새로 생성하지 않음
+    const existingEffect = this.comboEffects[0];
+    if (existingEffect && performance.now() - existingEffect.timestamp < 200) {
+      existingEffect.combo = this.combo;
+      existingEffect.color = this.getComboColor(this.combo);
+      existingEffect.timestamp = performance.now();
+      existingEffect.scale = 1.5;
+      existingEffect.alpha = 1.0;
+      return;
+    }
+
+    // 최대 1개의 효과만 유지
+    this.comboEffects = [];
+
+    const x = this.canvas.width * 0.5;
+    const y = this.canvas.height * 0.25;
 
     this.comboEffects.push({
       combo: this.combo,
@@ -539,42 +553,46 @@ export class GameEngine {
     const now = performance.now();
     this.comboEffects = this.comboEffects.filter(effect => {
       const age = now - effect.timestamp;
-      if (age > 500) return false;  // 0.5초 후 제거
+      if (age > 400) return false;  // 표시 시간 단축 (500ms → 400ms)
 
-      // 크기와 투명도 업데이트
-      effect.scale = 1.5 - (age / 500) * 0.5;  // 1.5에서 1.0으로 감소
-      effect.alpha = 1 - age / 500;  // 1에서 0으로 감소
+      // 더 부드러운 애니메이션
+      effect.scale = 1.5 - (age / 400) * 0.3;  // 크기 변화 감소
+      effect.alpha = Math.max(0, 1 - age / 400);
 
       return effect.alpha > 0;
     });
   }
 
   private drawComboEffects() {
-    this.comboEffects.forEach(effect => {
-      this.ctx.save();
-      
-      // 콤보 텍스트
-      this.ctx.globalAlpha = effect.alpha;
-      this.ctx.font = `bold ${32 * effect.scale * this.scale}px Arial`;  // 폰트 크기 증가
-      this.ctx.textAlign = 'center';  // 중앙 정렬로 변경
-      this.ctx.textBaseline = 'middle';  // 수직 중앙 정렬 추가
-      this.ctx.fillStyle = effect.color;
-      
-      // 그림자 효과
+    if (this.comboEffects.length === 0) return;
+
+    const effect = this.comboEffects[0];
+    this.ctx.save();
+    
+    // 그림자 효과 최적화
+    if (effect.alpha > 0.3) {  // 투명도가 낮을 때는 그림자 효과 생략
       this.ctx.shadowColor = effect.color;
-      this.ctx.shadowBlur = 10 * this.scale;
-      
-      // 외곽선 추가
+      this.ctx.shadowBlur = 8 * this.scale;  // 그림자 크기 축소
+    }
+    
+    // 텍스트 설정
+    this.ctx.globalAlpha = effect.alpha;
+    this.ctx.font = `bold ${32 * effect.scale * this.scale}px Arial`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    
+    // 외곽선 (투명도가 높을 때만)
+    if (effect.alpha > 0.5) {
       this.ctx.strokeStyle = effect.color;
       this.ctx.lineWidth = 2 * this.scale;
       this.ctx.strokeText(`${effect.combo} COMBO!`, effect.x, effect.y);
-      
-      // 콤보 텍스트 그리기
-      this.ctx.fillStyle = '#ffffff';  // 텍스트 색상을 흰색으로
-      this.ctx.fillText(`${effect.combo} COMBO!`, effect.x, effect.y);
-      
-      this.ctx.restore();
-    });
+    }
+    
+    // 메인 텍스트
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillText(`${effect.combo} COMBO!`, effect.x, effect.y);
+    
+    this.ctx.restore();
   }
 
   private registerPerfect() {
