@@ -664,6 +664,72 @@ export class GameEngine {
     return minHeight + heightRange * smoothValue;
   }
 
+  private readonly PAUSE_BUTTON = {
+    x: 0,
+    y: 0,
+    width: 40,
+    height: 40,
+    margin: 20
+  };
+
+  // 일시정지 버튼 클릭 체크
+  public isPauseButtonClicked(x: number, y: number): boolean {
+    if (!this.isRunning || this.isPaused) return false;
+
+    const scale = this.scale;
+    const buttonX = this.canvas.width - (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
+    const buttonY = this.PAUSE_BUTTON.margin * scale;
+    const buttonWidth = this.PAUSE_BUTTON.width * scale;
+    const buttonHeight = this.PAUSE_BUTTON.height * scale;
+
+    return (
+      x >= buttonX &&
+      x <= buttonX + buttonWidth &&
+      y >= buttonY &&
+      y <= buttonY + buttonHeight
+    );
+  }
+
+  // 일시정지 버튼 그리기
+  private drawPauseButton() {
+    if (!this.isRunning || this.isPaused) return;
+
+    const scale = this.scale;
+    const { width, height, margin } = this.PAUSE_BUTTON;
+    
+    // 버튼 위치 계산
+    const x = this.canvas.width - (width + margin) * scale;
+    const y = margin * scale;
+    
+    // 반투명 배경
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    this.ctx.beginPath();
+    this.ctx.roundRect(x, y, width * scale, height * scale, 8 * scale);
+    this.ctx.fill();
+
+    // 일시정지 아이콘
+    this.ctx.fillStyle = '#ffffff';
+    const barWidth = 4 * scale;
+    const barHeight = 16 * scale;
+    const barMargin = 12 * scale;
+    
+    // 왼쪽 바
+    this.ctx.fillRect(
+      x + barMargin,
+      y + (height * scale - barHeight) / 2,
+      barWidth,
+      barHeight
+    );
+    
+    // 오른쪽 바
+    this.ctx.fillRect(
+      x + width * scale - barMargin - barWidth,
+      y + (height * scale - barHeight) / 2,
+      barWidth,
+      barHeight
+    );
+  }
+
   // 기존 draw 함수 수정
   private draw() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -772,6 +838,9 @@ export class GameEngine {
     this.ctx.textAlign = "left";
     this.ctx.fillText(`Score: ${this.score}`, 10 * this.scale, 30 * this.scale);
     this.ctx.fillText(`Combo: ${this.combo}`, 10 * this.scale, 60 * this.scale);
+
+    // 일시정지 버튼 그리기
+    this.drawPauseButton();
   }
 
   private update(timestamp: number) {

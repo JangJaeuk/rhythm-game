@@ -36,6 +36,7 @@ function Game() {
     missCount,
     handleCanvasClick,
     handleCanvasRelease,
+    gameEngine,
   } = useGame(canvasRef, audioRef);
   const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } = useGameAudio(audioRef);
 
@@ -91,12 +92,21 @@ function Game() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
-  // 캔버스 클릭/터치 이벤트 핸들러
+  // 캔버스 클릭 이벤트 핸들러
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !gameState) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // 일시정지 버튼 클릭 체크
+    if (gameState === "playing" && gameEngine?.isPauseButtonClicked(x, y)) {
+      pauseAudio();
+      pauseGame();
+      return;
+    }
+
     handleCanvasClick(x);
   };
 
@@ -111,13 +121,22 @@ function Game() {
 
   // 터치 시작 핸들러
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !gameState) return;
     e.preventDefault();
     
     const rect = canvasRef.current.getBoundingClientRect();
     // 모든 터치 포인트에 대해 처리
     Array.from(e.touches).forEach(touch => {
       const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      // 일시정지 버튼 클릭 체크
+      if (gameState === "playing" && gameEngine?.isPauseButtonClicked(x, y)) {
+        pauseAudio();
+        pauseGame();
+        return;
+      }
+
       handleCanvasClick(x);
     });
   };
