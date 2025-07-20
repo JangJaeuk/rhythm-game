@@ -31,23 +31,29 @@ export function MusicList({ onSelectMusic }: MusicListProps) {
                 <span className={s.duration}>길이: {getFormattedTime(music.duration)}</span>
               </div> 
             </div>
-            <div className={s.buttonGroup}>
-              <button
-                className={s.playButton}
-                onClick={() => onSelectMusic(music.id)}
-              >
-                실행
-              </button>
-              <button
-                className={s.rankingButton}
-                onClick={() => {
-                  setSelectedMusicId(music.id);
-                  setShowLeaderboard(true);
-                }}
-              >
-                랭킹보기
-              </button>
-            </div>
+            {
+              music.isReady ? (
+              <div className={s.buttonGroup}>
+                <button
+                  className={s.playButton}
+                  onClick={() => onSelectMusic(music.id)}
+                >
+                  실행
+                </button>
+                <button
+                  className={s.rankingButton}
+                  onClick={() => {
+                    setSelectedMusicId(music.id);
+                    setShowLeaderboard(true);
+                  }}
+                >
+                  랭킹보기
+                </button>
+              </div>
+              ) : (
+                <div className={s.notReady}>준비중</div>
+              )
+            }
           </div>
         ))}
       </div>

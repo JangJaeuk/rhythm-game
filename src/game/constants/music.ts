@@ -9,6 +9,7 @@ export const MUSIC_LIST: Music[] = [
         duration: 29,
         audioFile: "/assets/jingle-bells/music.mp3",
         thumbnail: "/assets/jingle-bells/thumbnail.png",
+        isReady: true,
     },
     {
         id: "a-small-miracle",
@@ -17,5 +18,6 @@ export const MUSIC_LIST: Music[] = [
         duration: 77,
         audioFile: "/assets/a-small-miracle/music.mp3",
         thumbnail: "/assets/a-small-miracle/thumbnail.jpg",
+        isReady: false,
     }
 ] as const;

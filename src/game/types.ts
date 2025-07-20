@@ -46,4 +46,5 @@ export interface Music {
   duration: number;
   audioFile: string;
   thumbnail: string;
+  isReady: boolean;
 }

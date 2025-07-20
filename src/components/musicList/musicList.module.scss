@@ -131,7 +131,29 @@
   &:hover {
     background-color: #357abd;
   }
-} 
+}
+
+.notReady {
+  background-color: rgba(128, 128, 128, 0.2);
+  color: #999;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.25rem;
+  font-weight: bold;
+  border: 1px dashed #666;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &::before {
+    content: "🔒";
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 500px) {
+    padding: 0.4rem;
+    font-size: 0.7rem;
+  }
+}
 
 .syncBanner {
   background-color: rgba(74, 144, 226, 0.1);
