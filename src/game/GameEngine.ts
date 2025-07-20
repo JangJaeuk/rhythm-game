@@ -125,25 +125,37 @@ export class GameEngine {
   }
 
   private touchLaneMap: Map<number, number> = new Map();
+  private activeTouchesPerLane: number[] = new Array(LANE_COUNT).fill(0);
 
   // 터치 시작 처리
   public handleTouchStart(touchId: number, x: number) {
     if (!this.isRunning || this.isPaused) return;
-
+    
     const lane = this.getLaneFromPosition(x);
     if (lane >= 0 && lane < LANE_COUNT) {
       this.touchLaneMap.set(touchId, lane);
-      this.handleKeyPress(lane);
+      this.activeTouchesPerLane[lane]++;
+      
+      // 레인의 첫 번째 터치일 때만 키 입력 처리
+      if (this.activeTouchesPerLane[lane] === 1) {
+        this.handleKeyPress(lane);
+      }
     }
   }
 
   // 터치 종료 처리
   public handleTouchEnd(touchId: number) {
     if (!this.isRunning || this.isPaused) return;
-
+    
     const lane = this.touchLaneMap.get(touchId);
     if (lane !== undefined) {
-      this.handleKeyRelease(lane);
+      this.activeTouchesPerLane[lane]--;
+      
+      // 레인의 마지막 터치가 끝났을 때만 키 해제 처리
+      if (this.activeTouchesPerLane[lane] === 0) {
+        this.handleKeyRelease(lane);
+      }
+      
       this.touchLaneMap.delete(touchId);
     }
   }
@@ -219,6 +231,7 @@ export class GameEngine {
   public stop() {
     this.isRunning = false;
     this.touchLaneMap.clear();
+    this.activeTouchesPerLane.fill(0);
     this.reset();
 
     // 모든 레인 이펙트 초기화
@@ -231,6 +244,7 @@ export class GameEngine {
   public pause() {
     this.isPaused = true;
     this.touchLaneMap.clear();
+    this.activeTouchesPerLane.fill(0);
 
     // 모든 레인 이펙트 초기화
     for (let i = 0; i < LANE_COUNT; i++) {
