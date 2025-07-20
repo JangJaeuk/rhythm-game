@@ -4,6 +4,8 @@
 
 웹 브라우저에서 실행되는 4레인 리듬게임입니다. Canvas API와 Web Audio API를 활용하여 구현한 고성능 리듬게임으로, 실시간 오디오 분석과 동적 시각화 효과를 제공합니다.
 
+🔗 [게임 플레이하기](https://genuine-trifle-50fb4c.netlify.app)
+
 ## 🛠 기술 스택
 
 - **React 18.3** - 최신 버전의 React를 사용한 컴포넌트 기반 UI 구현
