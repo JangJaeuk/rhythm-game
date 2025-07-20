@@ -43,6 +43,7 @@ export class GameEngine {
   private currentJudgment: Judgment | null = null;
   private judgmentDisplayTime: number = 0;
   private lastLongNoteUpdate: { [key: number]: number } = {};
+  private lastHitLane: number = 0;
   private laneEffects: LaneEffect[] = Array(LANE_COUNT)
     .fill(null)
     .map(() => ({
@@ -237,6 +238,7 @@ export class GameEngine {
   }
 
   private handleKeyPress(lane: number) {
+    this.lastHitLane = lane;
     // 레인 백그라운드
     this.activateLaneBackgroundEffect(lane);
 
@@ -341,19 +343,122 @@ export class GameEngine {
     );
   }
 
+  private noteHitEffects: Array<{
+    x: number;
+    y: number;
+    particles: Array<{
+      x: number;
+      y: number;
+      dx: number;
+      dy: number;
+      size: number;
+      color: string;
+      life: number;
+    }>;
+    timestamp: number;
+  }> = [];
+
+  private createNoteHitEffect(lane: number, judgment: "PERFECT" | "GOOD" | "NORMAL" | null) {
+    const x = (lane + 0.5) * this.scaledLaneWidth;
+    const y = this.scaledJudgementLineY;
+    
+    // 판정에 따른 파티클 설정
+    const particleCount = judgment === "PERFECT" ? 20 : judgment === "GOOD" ? 15 : 10;
+    const baseSize = judgment === "PERFECT" ? 4 : judgment === "GOOD" ? 3 : 2;
+    const baseSpeed = judgment === "PERFECT" ? 15 : judgment === "GOOD" ? 12 : 8;
+    const color = judgment === "PERFECT" ? LANE_COLORS[lane] : 
+                 judgment === "GOOD" ? '#88ff88' : '#4488ff';
+
+    const particles = [];
+    
+    // 원형으로 퍼지는 파티클 생성
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (Math.PI * 2 * i) / particleCount;
+      const speed = baseSpeed * (0.8 + Math.random() * 0.4);
+      particles.push({
+        x: x,
+        y: y,
+        dx: Math.cos(angle) * speed,
+        dy: Math.sin(angle) * speed,
+        size: baseSize * (0.8 + Math.random() * 0.4),
+        color: color,
+        life: 1.0
+      });
+    }
+
+    this.noteHitEffects.push({
+      x,
+      y,
+      particles,
+      timestamp: performance.now()
+    });
+  }
+
+  private updateNoteHitEffects() {
+    const now = performance.now();
+    this.noteHitEffects = this.noteHitEffects.filter(effect => {
+      // 2초 이상 된 이펙트는 제거
+      if (now - effect.timestamp > 2000) return false;
+
+      effect.particles.forEach(particle => {
+        // 파티클 위치 업데이트
+        particle.x += particle.dx * 0.1;
+        particle.y += particle.dy * 0.1;
+        
+        // 중력 효과
+        particle.dy += 0.2;
+        
+        // 파티클 크기와 속도 감소
+        particle.size *= 0.95;
+        particle.dx *= 0.95;
+        particle.dy *= 0.95;
+        
+        // 생명력 감소
+        particle.life *= 0.95;
+      });
+
+      // 살아있는 파티클이 있는 이펙트만 유지
+      return effect.particles.some(p => p.life > 0.1);
+    });
+  }
+
+  private drawNoteHitEffects() {
+    this.noteHitEffects.forEach(effect => {
+      effect.particles.forEach(particle => {
+        if (particle.life <= 0.1) return;
+
+        this.ctx.beginPath();
+        this.ctx.arc(particle.x, particle.y, particle.size * this.scale, 0, Math.PI * 2);
+        this.ctx.fillStyle = `${particle.color}${Math.floor(particle.life * 255).toString(16).padStart(2, '0')}`;
+        this.ctx.fill();
+      });
+    });
+  }
+
   private judgeNote(timeDiff: number) {
+    let judgment: "PERFECT" | "GOOD" | "NORMAL" | null = null;
+
     if (timeDiff >= 0) {
       if (timeDiff <= PERFECT_RANGE) {
         this.registerPerfect();
+        judgment = "PERFECT";
       } else if (timeDiff <= GOOD_RANGE) {
         this.registerGood();
+        judgment = "GOOD";
       } else if (timeDiff <= NORMAL_RANGE) {
         this.registerNormal();
+        judgment = "NORMAL";
       } else {
         this.registerMiss();
       }
     } else if (timeDiff < 0 && timeDiff + TIME_CONSIDERING_PASSED >= 0) {
       this.registerPerfect();
+      judgment = "PERFECT";
+    }
+
+    // 판정에 따른 이펙트 생성
+    if (judgment) {
+      this.createNoteHitEffect(this.lastHitLane, judgment);
     }
   }
 
@@ -936,6 +1041,10 @@ export class GameEngine {
 
     // 일시정지 버튼 그리기
     this.drawPauseButton();
+
+    // 노트 히트 이펙트 업데이트 및 그리기
+    this.updateNoteHitEffects();
+    this.drawNoteHitEffects();
   }
 
   private update(timestamp: number) {
