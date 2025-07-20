@@ -503,11 +503,86 @@ export class GameEngine {
     });
   }
 
+  private comboEffects: Array<{
+    combo: number;
+    x: number;
+    y: number;
+    scale: number;
+    alpha: number;
+    color: string;
+    timestamp: number;
+  }> = [];
+
+  private getComboColor(combo: number): string {
+    if (combo >= 100) return '#ff3366';  // 빨강 (100+)
+    if (combo >= 50) return '#ffaa00';   // 주황 (50+)
+    if (combo >= 30) return '#44aaff';   // 파랑 (30+)
+    return '#88ff88';                    // 초록
+  }
+
+  private createComboEffect() {
+    const x = this.canvas.width * 0.5;  // 화면 중앙
+    const y = this.canvas.height * 0.25;  // 상단 25% 위치
+
+    this.comboEffects.push({
+      combo: this.combo,
+      x,
+      y,
+      scale: 1.5,
+      alpha: 1.0,
+      color: this.getComboColor(this.combo),
+      timestamp: performance.now()
+    });
+  }
+
+  private updateComboEffects() {
+    const now = performance.now();
+    this.comboEffects = this.comboEffects.filter(effect => {
+      const age = now - effect.timestamp;
+      if (age > 500) return false;  // 0.5초 후 제거
+
+      // 크기와 투명도 업데이트
+      effect.scale = 1.5 - (age / 500) * 0.5;  // 1.5에서 1.0으로 감소
+      effect.alpha = 1 - age / 500;  // 1에서 0으로 감소
+
+      return effect.alpha > 0;
+    });
+  }
+
+  private drawComboEffects() {
+    this.comboEffects.forEach(effect => {
+      this.ctx.save();
+      
+      // 콤보 텍스트
+      this.ctx.globalAlpha = effect.alpha;
+      this.ctx.font = `bold ${32 * effect.scale * this.scale}px Arial`;  // 폰트 크기 증가
+      this.ctx.textAlign = 'center';  // 중앙 정렬로 변경
+      this.ctx.textBaseline = 'middle';  // 수직 중앙 정렬 추가
+      this.ctx.fillStyle = effect.color;
+      
+      // 그림자 효과
+      this.ctx.shadowColor = effect.color;
+      this.ctx.shadowBlur = 10 * this.scale;
+      
+      // 외곽선 추가
+      this.ctx.strokeStyle = effect.color;
+      this.ctx.lineWidth = 2 * this.scale;
+      this.ctx.strokeText(`${effect.combo} COMBO!`, effect.x, effect.y);
+      
+      // 콤보 텍스트 그리기
+      this.ctx.fillStyle = '#ffffff';  // 텍스트 색상을 흰색으로
+      this.ctx.fillText(`${effect.combo} COMBO!`, effect.x, effect.y);
+      
+      this.ctx.restore();
+    });
+  }
+
   private registerPerfect() {
     const comboMultiplier = this.getComboMultiplier();
     this.score += PERFECT_SCORE * comboMultiplier;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.createComboEffect();  // 콤보 효과 생성
     this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
     this.judgmentDisplayTime = performance.now();
   }
@@ -517,7 +592,7 @@ export class GameEngine {
     this.score += GOOD_SCORE * comboMultiplier;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.goodCount++;
+    this.createComboEffect();  // 콤보 효과 생성
     this.currentJudgment = { text: "GOOD", color: "#00ff00" };
     this.judgmentDisplayTime = performance.now();
   }
@@ -527,8 +602,8 @@ export class GameEngine {
     this.score += NORMAL_SCORE * comboMultiplier;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.normalCount++;
-    this.currentJudgment = { text: "NORMAL", color: "#0088ff" };
+    this.createComboEffect();  // 콤보 효과 생성
+    this.currentJudgment = { text: "NORMAL", color: "#4488ff" };
     this.judgmentDisplayTime = performance.now();
   }
 
@@ -583,107 +658,28 @@ export class GameEngine {
 
   // 판정 그리기
   private drawJudgment() {
-    if (!this.currentJudgment) return;
+    if (
+      this.currentJudgment &&
+      performance.now() - this.judgmentDisplayTime < 500
+    ) {
+      const elapsed = performance.now() - this.judgmentDisplayTime;
+      const alpha = 1 - elapsed / 1000;
 
-    const now = performance.now();
-    const age = now - this.judgmentDisplayTime;
-    const duration = 500; // 표시 지속 시간
-    
-    if (age > duration) return;
-
-    // 판정별 색상과 효과 설정
-    const getJudgmentStyle = (judgment: string) => {
-      switch (judgment) {
-        case "PERFECT":
-          return {
-            color: "#ffd700",
-            glowColor: "#ffaa00",
-            scale: 1.0,  // 스케일 축소
-            glowSize: 12
-          };
-        case "GOOD":
-          return {
-            color: "#00ff00",
-            glowColor: "#00aa00",
-            scale: 0.9,  // 스케일 축소
-            glowSize: 10
-          };
-        case "NORMAL":
-          return {
-            color: "#4488ff",
-            glowColor: "#2244aa",
-            scale: 0.85,  // 스케일 축소
-            glowSize: 8
-          };
-        case "MISS":
-          return {
-            color: "#ff0000",
-            glowColor: "#aa0000",
-            scale: 0.85,  // 스케일 축소
-            glowSize: 8
-          };
-        default:
-          return {
-            color: "#ffffff",
-            glowColor: "#888888",
-            scale: 0.8,
-            glowSize: 6
-          };
-      }
-    };
-
-    const style = getJudgmentStyle(this.currentJudgment.text);
-    
-    // 애니메이션 효과 계산
-    const progress = age / duration;
-    const fadeIn = Math.min(1, progress * 2);
-    const fadeOut = Math.max(0, 1 - (progress - 0.5) * 2);
-    const alpha = Math.min(fadeIn, fadeOut);
-    
-    // 크기 애니메이션 (진폭 축소)
-    const bounceScale = 1 + Math.sin(progress * Math.PI) * 0.15;
-    const finalScale = style.scale * bounceScale;
-    
-    // 판정 텍스트 그리기 (크기와 위치 조정)
-    const fontSize = 36 * this.scale * finalScale;  // 기본 폰트 크기 축소
-    const x = this.canvas.width * 0.5;
-    const y = this.canvas.height * 0.7;  // 위치를 중하단으로 이동
-
-    this.ctx.save();
-    this.ctx.globalAlpha = alpha;
-    
-    // 외부 그림자 효과
-    this.ctx.shadowColor = style.glowColor;
-    this.ctx.shadowBlur = style.glowSize * this.scale;
-    this.ctx.shadowOffsetX = 0;
-    this.ctx.shadowOffsetY = 0;
-
-    // 텍스트 설정
-    this.ctx.font = `bold ${fontSize}px Arial`;
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    
-    // 외곽선 (두께 축소)
-    this.ctx.strokeStyle = style.glowColor;
-    this.ctx.lineWidth = 2 * this.scale;
-    this.ctx.strokeText(this.currentJudgment.text, x, y);
-    
-    // 메인 텍스트
-    this.ctx.fillStyle = style.color;
-    this.ctx.fillText(this.currentJudgment.text, x, y);
-
-    // 추가 발광 효과 (PERFECT일 때만, 크기 축소)
-    if (this.currentJudgment.text === "PERFECT") {
-      const glowRadius = (30 + Math.sin(progress * Math.PI * 4) * 10) * this.scale;
-      const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
-      gradient.addColorStop(0, style.glowColor + "55");  // 투명도 약간 증가
-      gradient.addColorStop(1, "transparent");
+      this.ctx.save();
+      this.ctx.globalAlpha = alpha;
+      this.ctx.fillStyle = this.currentJudgment.color;
+      this.ctx.font = `bold ${28 * this.scale}px Arial`;  // 36px에서 28px로 축소
+      this.ctx.textAlign = "center";
       
-      this.ctx.fillStyle = gradient;
-      this.ctx.fillRect(x - glowRadius, y - glowRadius, glowRadius * 2, glowRadius * 2);
-    }
+      // Display judgment text
+      this.ctx.fillText(
+        this.currentJudgment.text,
+        this.canvas.width / 2,
+        this.canvas.height - this.canvas.height / 4,
+      );
 
-    this.ctx.restore();
+      this.ctx.restore();
+    }
   }
 
   // 비주얼라이저 그리기 함수 추가
@@ -1085,6 +1081,11 @@ export class GameEngine {
     this.ctx.textAlign = "left";
     this.ctx.fillText(`Score: ${this.score}`, 10 * this.scale, 30 * this.scale);
     this.ctx.fillText(`Combo: ${this.combo}`, 10 * this.scale, 60 * this.scale);
+    this.ctx.fillText(`Bonus: x${this.getComboMultiplier()}`, 10 * this.scale, 90 * this.scale);
+
+    // 콤보 이펙트 업데이트 및 그리기
+    this.updateComboEffects();
+    this.drawComboEffects();
 
     // 일시정지 버튼 그리기
     this.drawPauseButton();
