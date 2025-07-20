@@ -45,8 +45,21 @@ export function getNotes(musicId: string): Note[] {
 export async function measureAudioLatency(
   audioContext: AudioContext,
 ): Promise<number> {
+  // AudioContext가 suspended 상태면 먼저 resume
+  if (audioContext.state === "suspended") {
+    try {
+      console.log("Attempting to resume AudioContext...");
+      await audioContext.resume();
+      console.log("AudioContext resumed, new state:", audioContext.state);
+    } catch (error) {
+      console.warn("Failed to resume AudioContext:", error);
+    }
+  }
+
   return new Promise((resolve) => {
     console.log("Starting latency measurement process...");
+    console.log("Current AudioContext state:", audioContext.state);
+
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
     gainNode.gain.value = 0.01;
@@ -65,8 +78,16 @@ export async function measureAudioLatency(
     const toneDuration = 0.1;
 
     console.log("Scheduling oscillator - Start:", startTime, "Duration:", toneDuration);
-    oscillator.start(startTime);
-    oscillator.stop(startTime + toneDuration);
+    
+    try {
+      oscillator.start(startTime);
+      oscillator.stop(startTime + toneDuration);
+      console.log("Oscillator scheduled successfully");
+    } catch (error) {
+      console.error("Failed to schedule oscillator:", error);
+      resolve(0);
+      return;
+    }
 
     // 타임아웃 설정 (1초)
     const timeoutId = setTimeout(() => {
