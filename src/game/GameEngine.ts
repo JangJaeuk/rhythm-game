@@ -124,8 +124,11 @@ export class GameEngine {
     }
   }
 
-  // 터치 ID와 레인을 매핑하는 맵 추가
   private touchLaneMap: Map<number, number> = new Map();
+  // 각 레인의 마지막 터치 시간을 저장
+  private lastTouchTime: { [key: number]: number } = {};
+  // 터치 간격 임계값 (밀리초)
+  private readonly TOUCH_THRESHOLD = 32;
 
   // 터치 시작 처리
   public handleTouchStart(touchId: number, x: number) {
@@ -133,7 +136,16 @@ export class GameEngine {
     
     const lane = this.getLaneFromPosition(x);
     if (lane >= 0 && lane < LANE_COUNT) {
+      const currentTime = performance.now();
+      const lastTime = this.lastTouchTime[lane] || 0;
+
+      // 같은 레인의 이전 터치와의 시간 간격이 임계값보다 작으면 무시
+      if (currentTime - lastTime < this.TOUCH_THRESHOLD) {
+        return;
+      }
+
       this.touchLaneMap.set(touchId, lane);
+      this.lastTouchTime[lane] = currentTime;
       this.handleKeyPress(lane);
     }
   }
@@ -144,7 +156,13 @@ export class GameEngine {
     
     const lane = this.touchLaneMap.get(touchId);
     if (lane !== undefined) {
-      this.handleKeyRelease(lane);
+      const currentTime = performance.now();
+      const lastTime = this.lastTouchTime[lane] || 0;
+
+      // 터치 종료도 시간 간격을 체크
+      if (currentTime - lastTime >= this.TOUCH_THRESHOLD) {
+        this.handleKeyRelease(lane);
+      }
       this.touchLaneMap.delete(touchId);
     }
   }
@@ -220,12 +238,14 @@ export class GameEngine {
   public stop() {
     this.isRunning = false;
     this.touchLaneMap.clear();
+    this.lastTouchTime = {};
     this.reset();
   }
 
   public pause() {
     this.isPaused = true;
     this.touchLaneMap.clear();
+    this.lastTouchTime = {};
   }
 
   public resume() {
