@@ -91,7 +91,7 @@ function Game() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
-  // 캔버스 클릭 이벤트 핸들러
+  // 캔버스 클릭/터치 이벤트 핸들러
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     
@@ -100,12 +100,34 @@ function Game() {
     handleCanvasClick(x);
   };
 
-  // 캔버스 마우스업 이벤트 핸들러
+  // 캔버스 마우스업/터치엔드 이벤트 핸들러
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
+    handleCanvasRelease(x);
+  };
+
+  // 터치 시작 핸들러
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    e.preventDefault(); // 기본 동작 방지 (스크롤 등)
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    handleCanvasClick(x);
+  };
+
+  // 터치 종료 핸들러
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    e.preventDefault(); // 기본 동작 방지
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const touch = e.changedTouches[0];
+    const x = touch.clientX - rect.left;
     handleCanvasRelease(x);
   };
 
@@ -156,6 +178,8 @@ function Game() {
         }}
         onMouseDown={handleClick}
         onMouseUp={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       />
 
       {gameState === "idle" && (
