@@ -1,50 +1,112 @@
-# React + TypeScript + Vite
+# 리듬게임 프로젝트
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 🎮 프로젝트 소개
 
-Currently, two official plugins are available:
+웹 브라우저에서 실행되는 4레인 리듬게임입니다. Canvas API와 Web Audio API를 활용하여 구현한 고성능 리듬게임으로, 실시간 오디오 분석과 동적 시각화 효과를 제공합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠 기술 스택
 
-## Expanding the ESLint configuration
+- **React 18.3** - 최신 버전의 React를 사용한 컴포넌트 기반 UI 구현
+- **TypeScript** - 타입 안정성과 개발 생산성 향상
+- **Vite** - 빠른 개발 환경과 최적화된 빌드
+- **SCSS Modules** - 컴포넌트 단위의 스타일 격리와 재사용성
+- **Web Audio API** - 실시간 오디오 처리 및 시각화
+- **Canvas API** - 고성능 게임 렌더링
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## 💡 주요 기능 및 구현 내용
 
-- Configure the top-level `parserOptions` property like this:
+### 게임 엔진 (GameEngine.ts)
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- **고성능 렌더링**
+
+  - RequestAnimationFrame을 활용한 60FPS 렌더링
+  - Canvas 상태 변경 최소화로 최적화된 성능
+  - 객체 풀링을 통한 메모리 관리 최적화
+
+- **정밀한 노트 판정 시스템**
+
+  - PERFECT / GOOD / NORMAL / MISS 4단계 판정
+  - 오디오 레이턴시 자동 측정 및 보정
+  - 롱노트 지원 및 실시간 점수 계산
+
+- **실시간 오디오 시각화**
+  - FFT를 활용한 주파수 분석
+  - 비트와 멜로디 대역 분리 처리
+  - 동적 인텐시티 계산 및 시각화
+
+### UI/UX
+
+- **반응형 레이아웃**
+
+  - 다양한 화면 크기 지원
+  - 캔버스 크기 자동 조정
+
+- **게임 피드백**
+
+  - 동적 콤보 이펙트
+  - 노트 히트 이펙트
+  - 레인 이펙트 시스템
+
+- **게임 진행 관리**
+  - 곡 선택 인터페이스
+  - 점수 기록 및 랭킹 시스템
+  - 일시정지 및 재개 기능
+
+### 성능 최적화
+
+- 캔버스 렌더링 최적화
+
+  - 상태 변경 그룹화
+  - 불필요한 리렌더링 방지
+  - 메모리 사용량 최적화
+
+- 오디오 처리 최적화
+  - 오디오 컨텍스트 재사용
+  - 레이턴시 최소화
+  - 효율적인 주파수 분석
+
+## 🚀 실행 방법
+
+```bash
+# 의존성 설치
+yarn install
+
+# 개발 서버 실행
+yarn dev
+
+# 프로덕션 빌드
+yarn build
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## 🔜 향후 업데이트 예정 기능
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### 모바일 지원 확장
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+- 터치 이벤트 구현으로 모바일 플레이 지원
+- 모바일에 최적화된 UI/UX 개선
+
+### 백엔드 연동
+
+- 음악 파일 데이터베이스 구축
+- 사용자별 게임 데이터 저장
+
+### 게임 기능 확장
+
+- 게임 속도 조절하는 기능 추가
+- 레이턴시 사용자가 직접 수정할 수 있는 기능 추가
+
+### 성능 개선
+
+- 더욱 정교한 판정 시스템
+
+## 🌐 지원 브라우저
+
+- Chrome
+- NAVER Whale
+- PC 환경 권장 (모바일 미지원)
+
+## 🎵 게임 조작법
+
+- D, F, J, K 키로 노트 입력
+- ESC 키로 일시정지
+- 판정선에 맞춰 정확한 타이밍에 키 입력
