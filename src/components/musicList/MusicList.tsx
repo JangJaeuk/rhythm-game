@@ -17,6 +17,9 @@ export function MusicList({ onSelectMusic }: MusicListProps) {
   return (
     <div className={s.container}>
       <h1 className={s.title}>음악 선택</h1>
+      <div className={s.syncBanner}>
+        음악 싱크가 잘 맞지 않으면 페이지를 새로고침(F5) 해주세요.
+      </div>
       <div className={s.musicList}>
         {MUSIC_LIST.map((music) => (
           <div key={music.id} className={s.musicItem}>

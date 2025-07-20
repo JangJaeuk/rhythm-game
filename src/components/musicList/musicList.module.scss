@@ -132,3 +132,28 @@
     background-color: #357abd;
   }
 } 
+
+.syncBanner {
+  background-color: rgba(74, 144, 226, 0.1);
+  border: 1px solid rgba(74, 144, 226, 0.3);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  @media (max-width: 500px) {
+    font-size: 0.7rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  &::before {
+    content: "ℹ️";
+    font-size: 1.1rem;
+  }
+} 
