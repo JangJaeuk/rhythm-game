@@ -1,4 +1,4 @@
-import { createNote } from "../../utils";
+import { createNote } from "../../utils/note";
 
 export const A_SMALL_MIRACLE_NOTES = [
   // 인트로 패턴 유지 (0-10000)

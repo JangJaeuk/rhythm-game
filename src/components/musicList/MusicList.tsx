@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { MUSIC_LIST } from "../../constants/music";
-import { getFormattedDifficulty, getFormattedTime } from "../../engine/utils";
+import {
+  getFormattedDifficulty,
+  getFormattedTime,
+} from "../../engine/utils/format";
 import { useGameScore } from "../../hooks/useGameScore";
 import { LeaderboardModal } from "../modals/LeaderboardModal";
 import s from "./musicList.module.scss";

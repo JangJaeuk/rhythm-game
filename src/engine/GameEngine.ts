@@ -18,15 +18,10 @@ import {
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
   TIME_CONSIDERING_PASSED,
 } from "./constants/gameBase";
-import {
-  Judgment,
-  LaneBackgroundEffect,
-  LaneEffect,
-  LongNoteState,
-  Note,
-  NoteType,
-} from "./types";
-import { measureAudioLatency } from "./utils";
+import { LaneBackgroundEffect, LaneEffect } from "./types/effect";
+import { Judgment } from "./types/judgment";
+import { LongNoteState, Note, NoteType } from "./types/note";
+import { measureAudioLatency } from "./utils/audio";
 
 // 타입 정의
 interface EffectParticle {

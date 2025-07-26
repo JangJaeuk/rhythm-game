@@ -1,4 +1,4 @@
-import { createNote } from "../../utils";
+import { createNote } from "../../utils/note";
 
 export const JINGLE_BELL_NOTES = [
   createNote(0, 600),

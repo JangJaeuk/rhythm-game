@@ -18,17 +18,3 @@ export interface Note {
   isHeld?: boolean;
   longNoteState?: LongNoteState;
 }
-
-export interface Judgment {
-  text: string;
-  color: string;
-}
-
-export interface LaneEffect {
-  active: boolean;
-  timestamp: number;
-}
-
-export interface LaneBackgroundEffect {
-  active: boolean;
-}

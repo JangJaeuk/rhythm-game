@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { GameEngine } from "../engine/GameEngine";
-import { getNotes } from "../engine/utils";
+import { getNotes } from "../engine/utils/note";
 
 export function useGame(
   canvasRef: React.RefObject<HTMLCanvasElement>,
@@ -30,8 +30,8 @@ export function useGame(
       setGameState("ended");
     });
 
-    const testNotes = getNotes(musicId);
-    engine.setNotes(testNotes);
+    const notes = getNotes(musicId);
+    engine.setNotes(notes);
     engine.start();
 
     setGameEngine(engine);
