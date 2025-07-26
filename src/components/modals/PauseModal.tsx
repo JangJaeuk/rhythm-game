@@ -4,11 +4,20 @@ interface PauseModalProps {
   isActive: boolean;
   onResume: () => Promise<void>;
   onExit: () => void;
+  onHowToPlay: () => void;
 }
 
-export function PauseModal({ isActive, onResume, onExit }: PauseModalProps) {
+export function PauseModal({
+  isActive,
+  onResume,
+  onExit,
+  onHowToPlay,
+}: PauseModalProps) {
   return (
     <div className={`${s.pauseMenu} ${isActive ? s.active : ""}`}>
+      <button className={s.button} onClick={onHowToPlay}>
+        How To Play
+      </button>
       <button className={s.button} onClick={onResume}>
         Resume
       </button>

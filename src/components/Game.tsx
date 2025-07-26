@@ -5,23 +5,30 @@ import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
 import { useGameCanvasSize } from "../hooks/useGameCanvasSize";
+import { useGameCountdown } from "../hooks/useGameCountdown";
 import { useGameScore } from "../hooks/useGameScore";
 import s from "./game.module.scss";
 import { BrowserCheckModal } from "./modals/BrowserCheckModal";
 import { GameOverModal } from "./modals/GameOverModal";
+import { HowToPlayModal } from "./modals/HowToPlayModal";
 import { PauseModal } from "./modals/PauseModal";
 import { MusicList } from "./musicList/MusicList";
 
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
+
   const { containerRef, canvasSize } = useGameCanvasSize();
+  const { playerName, setPlayerName, saveScore } = useGameScore();
+  const { countdown, countdownPromise } = useGameCountdown();
+  const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } =
+    useGameAudio(audioRef);
 
   const isSupportedBrowser = useBrowserCheck();
-  const { playerName, setPlayerName, saveScore } = useGameScore();
+
   const {
     startGame,
     pauseGame,
@@ -38,8 +45,6 @@ function Game() {
     missCount,
     gameEngine,
   } = useGame(canvasRef, audioRef);
-  const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } =
-    useGameAudio(audioRef);
 
   // 키보드 이벤트 핸들러
   useEffect(() => {
@@ -48,6 +53,7 @@ function Game() {
         pauseAudio();
         pauseGame();
       } else if (e.key === "Escape" && gameState === "paused") {
+        setShowHowToPlay(false);
         await playAudio();
         resumeGame();
       }
@@ -84,24 +90,19 @@ function Game() {
 
     startCountdown();
 
-    // 카운트다운과 초기화를 병렬로 처리
-    const countdownPromise = (async () => {
-      setCountdown(3);
-      for (let i = 2; i >= 0; i--) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setCountdown(i);
-      }
-    })();
-
     const initPromise = GameEngine.initializeAudioBase(audioRef.current);
 
     // 둘 다 완료될 때까지 대기
-    await Promise.all([countdownPromise, initPromise]);
+    await Promise.all([countdownPromise(), initPromise]);
 
     // 이제 오디오 재생하고 게임 시작
     await playAudio();
     await waitForAudioStart();
     startGame(musicId);
+  };
+
+  const handleHowToPlay = () => {
+    setShowHowToPlay(true);
   };
 
   const handleResume = async () => {
@@ -164,7 +165,12 @@ function Game() {
         isActive={isPaused}
         onResume={handleResume}
         onExit={handleExit}
+        onHowToPlay={handleHowToPlay}
       />
+
+      {showHowToPlay && (
+        <HowToPlayModal onClose={() => setShowHowToPlay(false)} />
+      )}
 
       <audio ref={audioRef} preload="auto">
         <source
