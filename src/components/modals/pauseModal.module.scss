@@ -1,17 +1,22 @@
+@import "../../styles/variables.scss";
+
 .pauseMenu {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.9);
-  padding: 2rem;
-  border-radius: 8px;
+  background-color: rgba($color-background, 0.9);
+  padding: $spacing-xl;
+  border-radius: $border-radius-md;
   text-align: center;
-  z-index: 101;
+  z-index: $z-index-modal;
   min-width: 200px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
 
   &.active {
     opacity: 1;
@@ -21,19 +26,18 @@
 
 .button {
   background-color: transparent;
-  border: 1px solid #fff;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  margin: 0.5rem;
+  border: 1px solid $color-text-primary;
+  color: $color-text-primary;
+  padding: $spacing-sm $spacing-md;
   cursor: pointer;
-  border-radius: 4px;
-  font-size: 16px;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-md;
   transition: all 0.2s;
   display: block;
   width: 100%;
 
   &:hover {
-    background-color: #fff;
-    color: #000;
+    background-color: $color-text-primary;
+    color: $color-background;
   }
 }

@@ -1,11 +1,13 @@
+@import "../../styles/variables.scss";
+
 .overlayBackground {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
-  z-index: 100;
+  background-color: $color-overlay;
+  z-index: $z-index-modal;
 }
 
 .container {
@@ -13,55 +15,55 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.9);
-  padding: 2rem;
-  border-radius: 8px;
+  background-color: rgba($color-background, 0.9);
+  padding: $spacing-xl;
+  border-radius: $border-radius-md;
   text-align: center;
-  z-index: 101;
+  z-index: $z-index-modal + 1;
   min-width: 300px;
 }
 
 .text {
-  font-size: 36px;
-  color: #fff;
-  margin-bottom: 2rem;
+  font-size: $font-size-xl;
+  color: $color-text-primary;
+  margin-bottom: $spacing-xl;
 }
 
 .description {
-  font-size: 18px;
-  color: #fff;
-  margin: 0.5rem 0;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  margin: $spacing-sm 0;
 }
 
 .inputField {
   width: 100%;
-  padding: 0.5rem;
-  margin: 1rem 0;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  color: #fff;
-  font-size: 16px;
+  padding: $spacing-sm;
+  margin: $spacing-md 0;
+  background-color: $color-item-background;
+  border: 1px solid rgba($color-text-primary, 0.2);
+  border-radius: $border-radius-sm;
+  color: $color-text-primary;
+  font-size: $font-size-md;
 
   &:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.5);
+    border-color: rgba($color-text-primary, 0.5);
   }
 }
 
 .button {
   background-color: transparent;
-  border: 1px solid #fff;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  margin: 0.5rem;
+  border: 1px solid $color-text-primary;
+  color: $color-text-primary;
+  padding: $spacing-sm $spacing-md;
+  margin: $spacing-sm;
   cursor: pointer;
-  border-radius: 4px;
-  font-size: 16px;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-md;
   transition: all 0.2s;
 
   &:hover {
-    background-color: #fff;
-    color: #000;
+    background-color: $color-text-primary;
+    color: $color-background;
   }
 }

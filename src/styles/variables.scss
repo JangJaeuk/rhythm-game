@@ -1,0 +1,43 @@
+// Colors
+$color-background: #000;
+$color-background-light: #1a1a1a;
+$color-text-primary: #fff;
+$color-text-secondary: #ccc;
+$color-border: rgba(255, 255, 255, 0.1);
+
+// Theme Colors
+$color-primary: #4a90e2;
+$color-primary-hover: #357abd;
+$color-success: #4caf50;
+$color-success-hover: #45a049;
+
+// Overlay Colors
+$color-overlay: rgba(0, 0, 0, 0.4);
+$color-hover-overlay: rgba(255, 255, 255, 0.2);
+$color-item-background: rgba(255, 255, 255, 0.1);
+
+// Spacing
+$spacing-xs: 0.25rem; // 4px
+$spacing-sm: 0.5rem; // 8px
+$spacing-md: 1rem; // 16px
+$spacing-lg: 1.5rem; // 24px
+$spacing-xl: 2rem; // 32px
+
+// Border Radius
+$border-radius-sm: 0.25rem; // 4px
+$border-radius-md: 0.5rem; // 8px
+$border-radius-lg: 1rem; // 16px
+
+// Font Sizes
+$font-size-xs: 0.7rem; // 11.2px
+$font-size-sm: 0.9rem; // 14.4px
+$font-size-md: 1rem; // 16px
+$font-size-lg: 1.5rem; // 24px
+$font-size-xl: 2rem; // 32px
+$font-size-xxl: 8rem; // 128px
+
+// Breakpoints
+$breakpoint-mobile: 500px;
+
+// Z-index
+$z-index-modal: 1000;

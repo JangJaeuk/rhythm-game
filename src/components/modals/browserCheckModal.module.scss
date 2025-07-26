@@ -1,68 +1,70 @@
+@import "../../styles/variables.scss";
+
 .browserCheckModal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: $color-overlay;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 9999;
-  padding: 1rem;
+  z-index: $z-index-modal;
+  padding: $spacing-md;
   box-sizing: border-box;
 }
 
 .content {
-  background-color: #1a1a1a;
-  padding: 2rem;
-  border-radius: 8px;
+  background-color: $color-background-light;
+  padding: $spacing-xl;
+  border-radius: $border-radius-md;
   text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid $color-border;
 }
 
 .title {
-  font-size: 24px;
-  color: #fff;
-  margin-bottom: 1rem;
+  font-size: $font-size-lg;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
 
-  @media (max-width: 500px) {
-    font-size: 18px;
+  @media (max-width: $breakpoint-mobile) {
+    font-size: $font-size-md;
   }
 }
 
 .description {
-  font-size: 16px;
-  color: #ccc;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
   line-height: 1.5;
-  margin-bottom: 1rem;
+  margin-bottom: $spacing-md;
 
-  @media (max-width: 500px) {
-    font-size: 14px;
+  @media (max-width: $breakpoint-mobile) {
+    font-size: $font-size-sm;
   }
 }
 
 .browserLinks {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: $spacing-md;
+  margin-top: $spacing-lg;
 }
 
 .browserLink {
-  color: #4a9eff;
+  color: $color-primary;
   text-decoration: none;
-  padding: 0.5rem 1rem;
-  border: 1px solid #4a9eff;
-  border-radius: 4px;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid $color-primary;
+  border-radius: $border-radius-sm;
   transition: all 0.2s;
 
-  @media (max-width: 500px) {
-    font-size: 13px;
+  @media (max-width: $breakpoint-mobile) {
+    font-size: $font-size-xs;
   }
 
   &:hover {
-    background-color: #4a9eff;
-    color: #fff;
+    background-color: $color-primary;
+    color: $color-text-primary;
   }
 }

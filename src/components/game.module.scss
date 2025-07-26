@@ -1,3 +1,5 @@
+@import "../styles/variables.scss";
+
 .gameContainer {
   position: relative;
   width: 100%;
@@ -5,7 +7,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #000;
+  background-color: $color-background;
 }
 
 .gameCanvas {
@@ -16,9 +18,9 @@
 }
 
 .countdown {
-  font-size: 8rem;
+  font-size: $font-size-xxl;
   font-weight: bold;
-  color: white;
+  color: $color-text-primary;
   width: 100%;
   height: 100%;
   display: flex;
