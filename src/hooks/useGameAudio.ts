@@ -1,4 +1,4 @@
-import { RefObject } from 'react';
+import { RefObject } from "react";
 
 interface UseGameAudioReturn {
   waitForAudioStart: () => Promise<void>;
@@ -8,7 +8,9 @@ interface UseGameAudioReturn {
   loadAudio: () => void;
 }
 
-export function useGameAudio(audioRef: RefObject<HTMLAudioElement>): UseGameAudioReturn {
+export function useGameAudio(
+  audioRef: RefObject<HTMLAudioElement>
+): UseGameAudioReturn {
   const waitForAudioStart = async (): Promise<void> => {
     if (!audioRef.current) return;
 
@@ -53,4 +55,4 @@ export function useGameAudio(audioRef: RefObject<HTMLAudioElement>): UseGameAudi
     resetAudio,
     loadAudio,
   };
-} 
+}

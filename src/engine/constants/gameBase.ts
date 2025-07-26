@@ -1,14 +1,14 @@
 export const LANE_COLORS = [
-    "#ff4757", // Red
-    "#2ed573", // Green
-    "#1e90ff", // Blue
-    "#ffa502", // Orange
+  "#ff4757", // Red
+  "#2ed573", // Green
+  "#1e90ff", // Blue
+  "#ffa502", // Orange
 ];
-  
+
 export const LANE_COUNT = 4;
 export const CANVAS_WIDTH = 480;
 export const CANVAS_HEIGHT = 800;
-  
+
 export const LANE_WIDTH = CANVAS_WIDTH / LANE_COUNT;
 export const JUDGEMENT_LINE_Y = 800;
 

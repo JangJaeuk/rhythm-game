@@ -157,7 +157,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     audio: HTMLAudioElement | null,
-    onGameOver: () => void,
+    onGameOver: () => void
   ) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
@@ -334,7 +334,7 @@ export class GameEngine {
         note.lane === lane &&
         note.type === NoteType.LONG &&
         note.isHeld &&
-        note.longNoteState === LongNoteState.HOLDING,
+        note.longNoteState === LongNoteState.HOLDING
     );
 
     this.deactivateLaneBackgroundEffect(lane);
@@ -388,17 +388,24 @@ export class GameEngine {
   private static readonly EFFECT_PARTICLE_POOL_SIZE = 200;
   private static readonly BACKGROUND_PARTICLE_POOL_SIZE = 50;
   private static readonly EFFECT_POOL_SIZE = 20;
-  
+
   private effectParticlePool: EffectParticle[] = [];
   private backgroundParticlePool: BackgroundParticle[] = [];
   private effectPool: Effect[] = [];
   private particles: BackgroundParticle[] = [];
 
   private getEffectParticleFromPool(): EffectParticle {
-    return this.effectParticlePool.pop() || {
-      x: 0, y: 0, dx: 0, dy: 0,
-      size: 0, color: '', life: 0
-    };
+    return (
+      this.effectParticlePool.pop() || {
+        x: 0,
+        y: 0,
+        dx: 0,
+        dy: 0,
+        size: 0,
+        color: "",
+        life: 0,
+      }
+    );
   }
 
   private returnEffectParticleToPool(particle: EffectParticle) {
@@ -408,51 +415,71 @@ export class GameEngine {
   }
 
   private getBackgroundParticleFromPool(): BackgroundParticle {
-    return this.backgroundParticlePool.pop() || {
-      x: 0, y: 0,
-      size: 0, speed: 0, opacity: 0
-    };
+    return (
+      this.backgroundParticlePool.pop() || {
+        x: 0,
+        y: 0,
+        size: 0,
+        speed: 0,
+        opacity: 0,
+      }
+    );
   }
 
   private returnBackgroundParticleToPool(particle: BackgroundParticle) {
-    if (this.backgroundParticlePool.length < GameEngine.BACKGROUND_PARTICLE_POOL_SIZE) {
+    if (
+      this.backgroundParticlePool.length <
+      GameEngine.BACKGROUND_PARTICLE_POOL_SIZE
+    ) {
       this.backgroundParticlePool.push(particle);
     }
   }
 
   private getEffectFromPool(): Effect {
-    return this.effectPool.pop() || {
-      x: 0, y: 0,
-      particles: [],
-      timestamp: 0
-    };
+    return (
+      this.effectPool.pop() || {
+        x: 0,
+        y: 0,
+        particles: [],
+        timestamp: 0,
+      }
+    );
   }
 
   private returnEffectToPool(effect: Effect) {
     if (this.effectPool.length < GameEngine.EFFECT_POOL_SIZE) {
-      effect.particles.length = 0;  // 배열 재사용을 위해 비우기
+      effect.particles.length = 0; // 배열 재사용을 위해 비우기
       this.effectPool.push(effect);
     }
   }
 
-  private createNoteHitEffect(lane: number, judgment: "PERFECT" | "GOOD" | "NORMAL" | null) {
+  private createNoteHitEffect(
+    lane: number,
+    judgment: "PERFECT" | "GOOD" | "NORMAL" | null
+  ) {
     const effect = this.getEffectFromPool();
     effect.x = (lane + 0.5) * this.scaledLaneWidth;
     effect.y = this.scaledJudgementLineY;
     effect.timestamp = performance.now();
-    
+
     // 판정에 따른 파티클 설정
-    const particleCount = judgment === "PERFECT" ? 20 : judgment === "GOOD" ? 15 : 10;
+    const particleCount =
+      judgment === "PERFECT" ? 20 : judgment === "GOOD" ? 15 : 10;
     const baseSize = judgment === "PERFECT" ? 4 : judgment === "GOOD" ? 3 : 2;
-    const baseSpeed = judgment === "PERFECT" ? 15 : judgment === "GOOD" ? 12 : 8;
-    const color = judgment === "PERFECT" ? LANE_COLORS[lane] : 
-                 judgment === "GOOD" ? '#88ff88' : '#4488ff';
+    const baseSpeed =
+      judgment === "PERFECT" ? 15 : judgment === "GOOD" ? 12 : 8;
+    const color =
+      judgment === "PERFECT"
+        ? LANE_COLORS[lane]
+        : judgment === "GOOD"
+          ? "#88ff88"
+          : "#4488ff";
 
     // 파티클 생성 시 객체 풀 사용
     for (let i = 0; i < particleCount; i++) {
       const angle = (Math.PI * 2 * i) / particleCount;
       const speed = baseSpeed * (0.8 + Math.random() * 0.4);
-      
+
       const particle = this.getEffectParticleFromPool();
       particle.x = effect.x;
       particle.y = effect.y;
@@ -461,7 +488,7 @@ export class GameEngine {
       particle.size = baseSize * (0.8 + Math.random() * 0.4);
       particle.color = color;
       particle.life = 1.0;
-      
+
       effect.particles.push(particle);
     }
 
@@ -471,18 +498,18 @@ export class GameEngine {
   private updateNoteHitEffects() {
     const now = performance.now();
     let writeIndex = 0;
-    
+
     for (let i = 0; i < this.noteHitEffects.length; i++) {
       const effect = this.noteHitEffects[i];
       const age = now - effect.timestamp;
-      
+
       if (age <= 2000) {
         let hasLiveParticle = false;
         let particleWriteIndex = 0;
-        
+
         for (let j = 0; j < effect.particles.length; j++) {
           const particle = effect.particles[j];
-          
+
           particle.x += particle.dx * 0.1;
           particle.y += particle.dy * 0.1;
           particle.dy += 0.2;
@@ -490,7 +517,7 @@ export class GameEngine {
           particle.dx *= 0.95;
           particle.dy *= 0.95;
           particle.life *= 0.95;
-          
+
           if (particle.life > 0.1) {
             if (particleWriteIndex !== j) {
               effect.particles[particleWriteIndex] = particle;
@@ -501,9 +528,9 @@ export class GameEngine {
             this.returnEffectParticleToPool(particle);
           }
         }
-        
+
         effect.particles.length = particleWriteIndex;
-        
+
         if (hasLiveParticle) {
           if (writeIndex !== i) {
             this.noteHitEffects[writeIndex] = effect;
@@ -514,22 +541,32 @@ export class GameEngine {
         }
       } else {
         // 수명이 다한 이펙트의 모든 파티클을 풀에 반환
-        effect.particles.forEach(particle => this.returnEffectParticleToPool(particle));
+        effect.particles.forEach((particle) =>
+          this.returnEffectParticleToPool(particle)
+        );
         this.returnEffectToPool(effect);
       }
     }
-    
+
     this.noteHitEffects.length = writeIndex;
   }
 
   private drawNoteHitEffects() {
-    this.noteHitEffects.forEach(effect => {
-      effect.particles.forEach(particle => {
+    this.noteHitEffects.forEach((effect) => {
+      effect.particles.forEach((particle) => {
         if (particle.life <= 0.1) return;
 
         this.ctx.beginPath();
-        this.ctx.arc(particle.x, particle.y, particle.size * this.scale, 0, Math.PI * 2);
-        this.ctx.fillStyle = `${particle.color}${Math.floor(particle.life * 255).toString(16).padStart(2, '0')}`;
+        this.ctx.arc(
+          particle.x,
+          particle.y,
+          particle.size * this.scale,
+          0,
+          Math.PI * 2
+        );
+        this.ctx.fillStyle = `${particle.color}${Math.floor(particle.life * 255)
+          .toString(16)
+          .padStart(2, "0")}`;
         this.ctx.fill();
       });
     });
@@ -574,7 +611,7 @@ export class GameEngine {
 
         // 마지막 업데이트 이후 경과한 간격 수 계산
         const intervalsPassed = Math.floor(
-          (currentTime - lastUpdate) / INTERVAL_IN_LONG_NOTE_ACTIVE,
+          (currentTime - lastUpdate) / INTERVAL_IN_LONG_NOTE_ACTIVE
         );
 
         // 경과한 각 간격을 반복 처리
@@ -614,10 +651,10 @@ export class GameEngine {
   }> = [];
 
   private getComboColor(combo: number): string {
-    if (combo >= 100) return '#ff3366';  // 빨강 (100+)
-    if (combo >= 50) return '#ffaa00';   // 주황 (50+)
-    if (combo >= 30) return '#44aaff';   // 파랑 (30+)
-    return '#88ff88';                    // 초록
+    if (combo >= 100) return "#ff3366"; // 빨강 (100+)
+    if (combo >= 50) return "#ffaa00"; // 주황 (50+)
+    if (combo >= 30) return "#44aaff"; // 파랑 (30+)
+    return "#88ff88"; // 초록
   }
 
   private createComboEffect() {
@@ -645,22 +682,22 @@ export class GameEngine {
       scale: 1.5,
       alpha: 1.0,
       color: this.getComboColor(this.combo),
-      timestamp: performance.now()
+      timestamp: performance.now(),
     });
   }
 
   private updateComboEffects() {
     const now = performance.now();
     let writeIndex = 0;
-    
+
     for (let i = 0; i < this.comboEffects.length; i++) {
       const effect = this.comboEffects[i];
       const age = now - effect.timestamp;
-      
+
       if (age <= 400) {
         effect.scale = 1.5 - (age / 400) * 0.3;
         effect.alpha = Math.max(0, 1 - age / 400);
-        
+
         if (effect.alpha > 0) {
           if (writeIndex !== i) {
             this.comboEffects[writeIndex] = effect;
@@ -669,7 +706,7 @@ export class GameEngine {
         }
       }
     }
-    
+
     this.comboEffects.length = writeIndex;
   }
 
@@ -678,30 +715,31 @@ export class GameEngine {
 
     const effect = this.comboEffects[0];
     this.ctx.save();
-    
+
     // 그림자 효과 최적화
-    if (effect.alpha > 0.3) {  // 투명도가 낮을 때는 그림자 효과 생략
+    if (effect.alpha > 0.3) {
+      // 투명도가 낮을 때는 그림자 효과 생략
       this.ctx.shadowColor = effect.color;
-      this.ctx.shadowBlur = 8 * this.scale;  // 그림자 크기 축소
+      this.ctx.shadowBlur = 8 * this.scale; // 그림자 크기 축소
     }
-    
+
     // 텍스트 설정
     this.ctx.globalAlpha = effect.alpha;
     this.ctx.font = `bold ${32 * effect.scale * this.scale}px Arial`;
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+
     // 외곽선 (투명도가 높을 때만)
     if (effect.alpha > 0.5) {
       this.ctx.strokeStyle = effect.color;
       this.ctx.lineWidth = 2 * this.scale;
       this.ctx.strokeText(`${effect.combo} COMBO!`, effect.x, effect.y);
     }
-    
+
     // 메인 텍스트
-    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillStyle = "#ffffff";
     this.ctx.fillText(`${effect.combo} COMBO!`, effect.x, effect.y);
-    
+
     this.ctx.restore();
   }
 
@@ -710,7 +748,7 @@ export class GameEngine {
     this.score += PERFECT_SCORE * comboMultiplier;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.createComboEffect();  // 콤보 효과 생성
+    this.createComboEffect(); // 콤보 효과 생성
     this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
     this.judgmentDisplayTime = performance.now();
   }
@@ -720,7 +758,7 @@ export class GameEngine {
     this.score += GOOD_SCORE * comboMultiplier;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.createComboEffect();  // 콤보 효과 생성
+    this.createComboEffect(); // 콤보 효과 생성
     this.currentJudgment = { text: "GOOD", color: "#00ff00" };
     this.judgmentDisplayTime = performance.now();
   }
@@ -730,7 +768,7 @@ export class GameEngine {
     this.score += NORMAL_SCORE * comboMultiplier;
     this.combo++;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.createComboEffect();  // 콤보 효과 생성
+    this.createComboEffect(); // 콤보 효과 생성
     this.currentJudgment = { text: "NORMAL", color: "#4488ff" };
     this.judgmentDisplayTime = performance.now();
   }
@@ -796,14 +834,14 @@ export class GameEngine {
       this.ctx.save();
       this.ctx.globalAlpha = alpha;
       this.ctx.fillStyle = this.currentJudgment.color;
-      this.ctx.font = `bold ${28 * this.scale}px Arial`;  // 36px에서 28px로 축소
+      this.ctx.font = `bold ${28 * this.scale}px Arial`; // 36px에서 28px로 축소
       this.ctx.textAlign = "center";
-      
+
       // Display judgment text
       this.ctx.fillText(
         this.currentJudgment.text,
         this.canvas.width / 2,
-        this.canvas.height - this.canvas.height / 4,
+        this.canvas.height - this.canvas.height / 4
       );
 
       this.ctx.restore();
@@ -850,7 +888,7 @@ export class GameEngine {
           centerX + Math.cos(angle) * radius,
           centerY + Math.sin(angle) * radius,
           centerX + Math.cos(angle) * (radius + height),
-          centerY + Math.sin(angle) * (radius + height),
+          centerY + Math.sin(angle) * (radius + height)
         );
 
         // 주파수에 따른 색상 계산
@@ -888,7 +926,7 @@ export class GameEngine {
 
   private processFrequencyData(
     data: Uint8Array,
-    targetLength: number,
+    targetLength: number
   ): number[] {
     const dataLength = data.length;
 
@@ -917,13 +955,13 @@ export class GameEngine {
     // 비트와 멜로디 조합
     const currentIntensity = Math.max(
       bassEnergy * 1.2, // 비트에 가중치
-      maxValue * 0.7 + melodyAvg * 0.3,
+      maxValue * 0.7 + melodyAvg * 0.3
     );
 
     // 최대값 업데이트 (서서히 감소하는 최대값)
     this.maxIntensity = Math.max(
       currentIntensity,
-      this.maxIntensity * this.DECAY_FACTOR,
+      this.maxIntensity * this.DECAY_FACTOR
     );
 
     // 이전 값들과 비교하여 변화 감지
@@ -936,7 +974,7 @@ export class GameEngine {
     let variability = 0;
     for (let i = 1; i < this.previousIntensities.length; i++) {
       const delta = Math.abs(
-        this.previousIntensities[i] - this.previousIntensities[i - 1],
+        this.previousIntensities[i] - this.previousIntensities[i - 1]
       );
       variability += delta;
     }
@@ -995,7 +1033,7 @@ export class GameEngine {
       x + barMargin,
       y + (height * scale - barHeight) / 2,
       barWidth,
-      barHeight,
+      barHeight
     );
 
     // 오른쪽 바
@@ -1003,7 +1041,7 @@ export class GameEngine {
       x + width * scale - barMargin - barWidth,
       y + (height * scale - barHeight) / 2,
       barWidth,
-      barHeight,
+      barHeight
     );
   }
 
@@ -1013,22 +1051,29 @@ export class GameEngine {
     try {
       GameEngine.analyser.getByteFrequencyData(this.dataArray);
       const intensity = this.processFrequencyData(this.dataArray, 1)[0] / 255;
-      
+
       // 배경 그라데이션
-      const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+      const gradient = this.ctx.createLinearGradient(
+        0,
+        0,
+        0,
+        this.canvas.height
+      );
       const hue = (Date.now() / 50) % 360; // 시간에 따라 색상 변화
-      
+
       gradient.addColorStop(0, `hsla(${hue}, 70%, 5%, 1)`);
-      gradient.addColorStop(0.5, `hsla(${hue + 30}, 70%, ${5 + intensity * 10}%, 1)`);
+      gradient.addColorStop(
+        0.5,
+        `hsla(${hue + 30}, 70%, ${5 + intensity * 10}%, 1)`
+      );
       gradient.addColorStop(1, `hsla(${hue + 60}, 70%, 5%, 1)`);
-      
+
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
       // 파티클 효과
       this.updateBackgroundParticles();
       this.drawBackgroundParticles();
-
     } catch (error) {
       console.error("Error in drawReactiveBackground:", error);
     }
@@ -1057,27 +1102,27 @@ export class GameEngine {
 
     const intensity = this.processFrequencyData(this.dataArray!, 1)[0] / 255;
     let writeIndex = 0;
-    
+
     for (let i = 0; i < this.particles.length; i++) {
       const particle = this.particles[i];
       particle.y -= particle.speed * (1 + intensity);
-      
+
       if (particle.y < 0) {
         particle.y = this.canvas.height;
         particle.x = Math.random() * this.canvas.width;
       }
-      
+
       if (writeIndex !== i) {
         this.particles[writeIndex] = particle;
       }
       writeIndex++;
     }
-    
+
     this.particles.length = writeIndex;
   }
 
   private drawBackgroundParticles() {
-    this.particles.forEach(particle => {
+    this.particles.forEach((particle) => {
       this.ctx.beginPath();
       this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
@@ -1091,12 +1136,13 @@ export class GameEngine {
     const scale = this.scale;
     const scaledLaneWidth = this.scaledLaneWidth;
     const scaledJudgementLineY = this.scaledJudgementLineY;
-    const currentAudioTime = (this.audio?.currentTime || 0) - this.audioStartTime;
+    const currentAudioTime =
+      (this.audio?.currentTime || 0) - this.audioStartTime;
     const currentTime = currentAudioTime * 1000;
 
     // 전체 상태 한 번만 저장
     ctx.save();
-    
+
     // 캔버스 초기화
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -1108,7 +1154,7 @@ export class GameEngine {
     ctx.globalAlpha = 0.2;
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1;
-    
+
     // 레인 경계선 한 번에 그리기
     for (let i = 1; i < LANE_COUNT; i++) {
       const x = i * scaledLaneWidth;
@@ -1125,7 +1171,7 @@ export class GameEngine {
           i * scaledLaneWidth,
           0,
           scaledLaneWidth,
-          this.canvas.height,
+          this.canvas.height
         );
         gradient.addColorStop(0, "#000");
         gradient.addColorStop(1, LANE_COLORS[i]);
@@ -1136,7 +1182,7 @@ export class GameEngine {
           i * scaledLaneWidth,
           0,
           scaledLaneWidth,
-          this.canvas.height,
+          this.canvas.height
         );
       }
     }
@@ -1145,7 +1191,7 @@ export class GameEngine {
     ctx.globalAlpha = 1;
     for (let i = 0; i < LANE_COUNT; i++) {
       const isActive = this.laneEffects[i].active;
-      
+
       // 동일한 상태끼리 그룹화
       if (isActive) {
         ctx.strokeStyle = LANE_COLORS[i];
@@ -1167,33 +1213,38 @@ export class GameEngine {
     // 노트 그리기 - 상태 그룹화
     ctx.shadowBlur = 0;
     for (const note of this.activeNotes) {
-      const y = scaledJudgementLineY -
+      const y =
+        scaledJudgementLineY -
         ((note.timing - currentTime) / 2) *
-        (this.canvas.height / CANVAS_HEIGHT);
+          (this.canvas.height / CANVAS_HEIGHT);
 
       ctx.fillStyle = LANE_COLORS[note.lane];
-      
+
       if (note.type === NoteType.SHORT) {
         const noteHeight = 40 * scale;
         ctx.fillRect(
           note.lane * scaledLaneWidth,
           y - noteHeight / 2,
           scaledLaneWidth,
-          noteHeight,
+          noteHeight
         );
       } else {
         const duration = note.duration || 0;
         const height = (duration / 2) * (this.canvas.height / CANVAS_HEIGHT);
 
         // 롱노트 상태에 따른 투명도 설정
-        ctx.globalAlpha = note.longNoteState === LongNoteState.HOLDING ? 1 :
-                         note.longNoteState === LongNoteState.MISSED ? 0.3 : 0.8;
+        ctx.globalAlpha =
+          note.longNoteState === LongNoteState.HOLDING
+            ? 1
+            : note.longNoteState === LongNoteState.MISSED
+              ? 0.3
+              : 0.8;
 
         ctx.fillRect(
           note.lane * scaledLaneWidth,
           y - height,
           scaledLaneWidth,
-          height,
+          height
         );
       }
     }
@@ -1208,7 +1259,11 @@ export class GameEngine {
     // 점수 및 콤보 표시
     ctx.fillText(`Score: ${this.score}`, 10 * scale, 30 * scale);
     ctx.fillText(`Combo: ${this.combo}`, 10 * scale, 60 * scale);
-    ctx.fillText(`Bonus: x${this.getComboMultiplier()}`, 10 * scale, 90 * scale);
+    ctx.fillText(
+      `Bonus: x${this.getComboMultiplier()}`,
+      10 * scale,
+      90 * scale
+    );
 
     // 비주얼라이저 그리기
     if (this.isRunning) {
@@ -1216,7 +1271,10 @@ export class GameEngine {
     }
 
     // 판정 표시
-    if (this.currentJudgment && performance.now() - this.judgmentDisplayTime < 500) {
+    if (
+      this.currentJudgment &&
+      performance.now() - this.judgmentDisplayTime < 500
+    ) {
       this.drawJudgment();
     }
 
@@ -1320,7 +1378,7 @@ export class GameEngine {
       ) {
         if (!GameEngine.latency) {
           GameEngine.latency = await measureAudioLatency(
-            GameEngine.audioContext!,
+            GameEngine.audioContext!
           );
         }
         return;
@@ -1370,7 +1428,7 @@ export class GameEngine {
         ) {
           if (!GameEngine.latency) {
             GameEngine.latency = await measureAudioLatency(
-              GameEngine.audioContext,
+              GameEngine.audioContext
             );
           }
         } else {
@@ -1385,13 +1443,17 @@ export class GameEngine {
   // 클린업 처리 개선
   public destroy() {
     // 모든 파티클과 이펙트를 풀에 반환
-    this.noteHitEffects.forEach(effect => {
-      effect.particles.forEach(particle => this.returnEffectParticleToPool(particle));
+    this.noteHitEffects.forEach((effect) => {
+      effect.particles.forEach((particle) =>
+        this.returnEffectParticleToPool(particle)
+      );
       this.returnEffectToPool(effect);
     });
 
-    this.particles.forEach(particle => this.returnBackgroundParticleToPool(particle));
-    
+    this.particles.forEach((particle) =>
+      this.returnBackgroundParticleToPool(particle)
+    );
+
     // 배열 비우기
     this.noteHitEffects.length = 0;
     this.particles.length = 0;

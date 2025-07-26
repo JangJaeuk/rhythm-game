@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { GameEngine } from "../game/GameEngine";
-import { getNotes } from "../game/utils";
+import { GameEngine } from "../engine/GameEngine";
+import { getNotes } from "../engine/utils";
 
 export function useGame(
   canvasRef: React.RefObject<HTMLCanvasElement>,

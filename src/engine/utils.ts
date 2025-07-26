@@ -6,7 +6,7 @@ import { Note, NoteType } from "./types";
 export function createNote(
   lane: number,
   timing: number,
-  duration?: number,
+  duration?: number
 ): Note {
   return {
     lane,
@@ -43,7 +43,7 @@ export function getNotes(musicId: string): Note[] {
 }
 
 export async function measureAudioLatency(
-  audioContext: AudioContext,
+  audioContext: AudioContext
 ): Promise<number> {
   // AudioContext가 suspended 상태면 먼저 resume
   if (audioContext.state === "suspended") {
@@ -57,7 +57,6 @@ export async function measureAudioLatency(
   }
 
   return new Promise((resolve) => {
-
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
     gainNode.gain.value = 0.001;
@@ -72,7 +71,7 @@ export async function measureAudioLatency(
 
     const startTime = audioContext.currentTime + 0.1; // 100ms 이후 실행 예약
     const toneDuration = 0.1;
-    
+
     try {
       oscillator.start(startTime);
       oscillator.stop(startTime + toneDuration);
@@ -99,7 +98,7 @@ export async function measureAudioLatency(
 }
 
 export async function waitForAudioRefRaf(
-  audioRef: React.RefObject<HTMLAudioElement>,
+  audioRef: React.RefObject<HTMLAudioElement>
 ): Promise<HTMLAudioElement | null> {
   return new Promise((resolve) => {
     let attempts = 0;
@@ -112,7 +111,11 @@ export async function waitForAudioRefRaf(
         resolve(audioRef.current);
       } else {
         if (attempts >= maxAttempts) {
-          console.warn("Failed to find audio element after", attempts, "attempts");
+          console.warn(
+            "Failed to find audio element after",
+            attempts,
+            "attempts"
+          );
           resolve(null);
         } else {
           requestAnimationFrame(check);

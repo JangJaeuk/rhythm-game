@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { MUSIC_LIST } from "../../game/constants/music";
-import { getFormattedDifficulty, getFormattedTime } from "../../game/utils";
+import { MUSIC_LIST } from "../../constants/music";
+import { getFormattedDifficulty, getFormattedTime } from "../../engine/utils";
 import { useGameScore } from "../../hooks/useGameScore";
 import { LeaderboardModal } from "../modals/LeaderboardModal";
 import s from "./musicList.module.scss";
@@ -23,16 +23,23 @@ export function MusicList({ onSelectMusic }: MusicListProps) {
       <div className={s.musicList}>
         {MUSIC_LIST.map((music) => (
           <div key={music.id} className={s.musicItem}>
-            <img src={music.thumbnail} alt={music.title} className={s.thumbnail} />
+            <img
+              src={music.thumbnail}
+              alt={music.title}
+              className={s.thumbnail}
+            />
             <div className={s.musicInfo}>
               <h2 className={s.musicTitle}>{music.title}</h2>
               <div className={s.musicDetails}>
-                <span className={s.difficulty}>난이도: {getFormattedDifficulty(music.difficulty)}</span>
-                <span className={s.duration}>길이: {getFormattedTime(music.duration)}</span>
-              </div> 
+                <span className={s.difficulty}>
+                  난이도: {getFormattedDifficulty(music.difficulty)}
+                </span>
+                <span className={s.duration}>
+                  길이: {getFormattedTime(music.duration)}
+                </span>
+              </div>
             </div>
-            {
-              music.isReady ? (
+            {music.isReady ? (
               <div className={s.buttonGroup}>
                 <button
                   className={s.playButton}
@@ -50,20 +57,21 @@ export function MusicList({ onSelectMusic }: MusicListProps) {
                   랭킹보기
                 </button>
               </div>
-              ) : (
-                <div className={s.notReady}>준비중</div>
-              )
-            }
+            ) : (
+              <div className={s.notReady}>준비중</div>
+            )}
           </div>
         ))}
       </div>
 
       {showLeaderboard && (
         <LeaderboardModal
-          scores={getLeaderboard().filter(score => score.musicId === selectedMusicId)}
+          scores={getLeaderboard().filter(
+            (score) => score.musicId === selectedMusicId
+          )}
           onClose={() => setShowLeaderboard(false)}
         />
       )}
     </div>
   );
-} 
+}

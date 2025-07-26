@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../game/constants/gameBase";
-import { MUSIC_LIST } from "../game/constants/music";
-import { GameEngine } from "../game/GameEngine";
+import { MUSIC_LIST } from "../constants/music";
+import { GameEngine } from "../engine/GameEngine";
 import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
+import { useGameCanvasSize } from "../hooks/useGameCanvasSize";
 import { useGameScore } from "../hooks/useGameScore";
 import s from "./game.module.scss";
 import { BrowserCheckModal } from "./modals/BrowserCheckModal";
@@ -15,11 +15,10 @@ import { MusicList } from "./musicList/MusicList";
 function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
-  const [canvasSize, setCanvasSize] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
+  const { containerRef, canvasSize } = useGameCanvasSize();
 
   const isSupportedBrowser = useBrowserCheck();
   const { playerName, setPlayerName, saveScore } = useGameScore();
@@ -39,43 +38,8 @@ function Game() {
     missCount,
     gameEngine,
   } = useGame(canvasRef, audioRef);
-  const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } = useGameAudio(audioRef);
-
-  // 캔버스 크기 조정
-  useEffect(() => {
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      
-      const MAX_HEIGHT = CANVAS_HEIGHT;
-      const ORIGINAL_ASPECT_RATIO = CANVAS_WIDTH / CANVAS_HEIGHT;
-      
-      const containerWidth = containerRef.current.clientWidth;
-      const availableHeight = Math.min(containerRef.current.clientHeight, MAX_HEIGHT);
-      
-      // 너비 기준으로 계산했을 때의 크기
-      const widthBasedSize = {
-        width: containerWidth,
-        height: containerWidth / ORIGINAL_ASPECT_RATIO
-      };
-      
-      // 높이 기준으로 계산했을 때의 크기
-      const heightBasedSize = {
-        width: availableHeight * ORIGINAL_ASPECT_RATIO,
-        height: availableHeight
-      };
-      
-      // 둘 중 더 작은 크기를 선택 (컨테이너를 벗어나지 않는 크기)
-      const finalSize = widthBasedSize.height <= availableHeight
-        ? widthBasedSize
-        : heightBasedSize;
-      
-      setCanvasSize(finalSize);
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } =
+    useGameAudio(audioRef);
 
   // 키보드 이벤트 핸들러
   useEffect(() => {
@@ -93,10 +57,10 @@ function Game() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
 
-  // 마우스 클릭 핸들러 (일시정지 버튼용)
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // 마우스 클릭 핸들러
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || !gameState || !gameEngine) return;
-    
+
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -109,12 +73,12 @@ function Game() {
   };
 
   const handleMusicSelect = async (musicId: string) => {
-    const selectedMusic = MUSIC_LIST.find(music => music.id === musicId);
+    const selectedMusic = MUSIC_LIST.find((music) => music.id === musicId);
     if (!selectedMusic || !audioRef.current) return;
 
     setSelectedMusicId(musicId);
-    setCanvasKey(prev => prev + 1);
-    
+    setCanvasKey((prev) => prev + 1);
+
     // 오디오 로드
     loadAudio();
 
@@ -124,7 +88,7 @@ function Game() {
     const countdownPromise = (async () => {
       setCountdown(3);
       for (let i = 2; i >= 0; i--) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         setCountdown(i);
       }
     })();
@@ -170,19 +134,15 @@ function Game() {
         height={canvasSize.height}
         style={{
           width: canvasSize.width,
-          height: canvasSize.height
+          height: canvasSize.height,
         }}
-        onClick={handleClick}
+        onClick={handleCanvasClick}
       />
 
-      {gameState === "idle" && (
-        <MusicList onSelectMusic={handleMusicSelect} />
-      )}
-      
+      {gameState === "idle" && <MusicList onSelectMusic={handleMusicSelect} />}
+
       {countdown && gameState === "countdown" && (
-        <div className={s.countdown}>
-          {countdown}
-        </div>
+        <div className={s.countdown}>{countdown}</div>
       )}
 
       {gameState === "ended" && (
@@ -207,10 +167,16 @@ function Game() {
       />
 
       <audio ref={audioRef} preload="auto">
-        <source src={selectedMusicId ? MUSIC_LIST.find(m => m.id === selectedMusicId)?.audioFile : ""} type="audio/mpeg" />
+        <source
+          src={
+            selectedMusicId
+              ? MUSIC_LIST.find((m) => m.id === selectedMusicId)?.audioFile
+              : ""
+          }
+          type="audio/mpeg"
+        />
       </audio>
     </div>
   );
 }
 export default Game;
-

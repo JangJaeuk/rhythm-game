@@ -1,4 +1,4 @@
-import s from './gameOverModal.module.scss';
+import s from "./gameOverModal.module.scss";
 
 interface GameOverModalProps {
   score: number;
@@ -23,7 +23,7 @@ export function GameOverModal({
   playerName,
   onPlayerNameChange,
   onSaveScore,
-  onExit
+  onExit,
 }: GameOverModalProps) {
   return (
     <>
@@ -52,4 +52,4 @@ export function GameOverModal({
       </div>
     </>
   );
-} 
+}

@@ -1,4 +1,4 @@
-import s from './browserCheckModal.module.scss';
+import s from "./browserCheckModal.module.scss";
 
 export function BrowserCheckModal() {
   return (
@@ -6,7 +6,8 @@ export function BrowserCheckModal() {
       <div className={s.content}>
         <div className={s.title}>지원 환경 안내</div>
         <div className={s.description}>
-          이 게임은 PC의 Chrome 또는 NAVER Whale 브라우저에서만 플레이 가능합니다.
+          이 게임은 PC의 Chrome 또는 NAVER Whale 브라우저에서만 플레이
+          가능합니다.
           <br />
           모바일 환경에서는 플레이할 수 없습니다.
           <br />
@@ -34,4 +35,4 @@ export function BrowserCheckModal() {
       </div>
     </div>
   );
-} 
+}

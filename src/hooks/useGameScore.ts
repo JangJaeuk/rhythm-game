@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Score } from "../game/types";
+import { Score } from "../types/score";
 
 export function useGameScore() {
   const [playerName, setPlayerName] = useState("");
@@ -8,7 +8,9 @@ export function useGameScore() {
     if (playerName.trim() === "") return;
 
     const newScore: Score = { name: playerName, score, musicId };
-    const storedScores: Score[] = JSON.parse(localStorage.getItem("scores") || "[]");
+    const storedScores: Score[] = JSON.parse(
+      localStorage.getItem("scores") || "[]"
+    );
     storedScores.push(newScore);
     storedScores.sort((a: Score, b: Score) => b.score - a.score);
     localStorage.setItem("scores", JSON.stringify(storedScores));
@@ -24,6 +26,6 @@ export function useGameScore() {
     playerName,
     setPlayerName,
     saveScore,
-    getLeaderboard
+    getLeaderboard,
   };
-} 
+}

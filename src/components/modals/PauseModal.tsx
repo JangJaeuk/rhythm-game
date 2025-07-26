@@ -1,4 +1,4 @@
-import s from './pauseModal.module.scss';
+import s from "./pauseModal.module.scss";
 
 interface PauseModalProps {
   isActive: boolean;
@@ -17,4 +17,4 @@ export function PauseModal({ isActive, onResume, onExit }: PauseModalProps) {
       </button>
     </div>
   );
-} 
+}

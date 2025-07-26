@@ -1,4 +1,4 @@
-import s from './leaderboardModal.module.scss';
+import s from "./leaderboardModal.module.scss";
 
 interface Score {
   name: string;
@@ -26,4 +26,4 @@ export function LeaderboardModal({ scores, onClose }: LeaderboardModalProps) {
       </button>
     </div>
   );
-} 
+}
