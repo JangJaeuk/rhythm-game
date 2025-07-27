@@ -312,7 +312,9 @@ export class GameEngine {
           // 누른 상태로 변경
           closestNote.isHeld = true;
           closestNote.longNoteState = LongNoteState.HOLDING;
-          this.lastLongNoteUpdate[closestNote.lane] = currentTime;
+
+          // 시작 시점을 노트의 정확한 타이밍으로 설정
+          this.lastLongNoteUpdate[closestNote.lane] = closestNote.timing;
         }
       }
     }
