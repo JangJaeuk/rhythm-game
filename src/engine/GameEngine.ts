@@ -746,6 +746,7 @@ export class GameEngine {
     this.createComboEffect(); // 콤보 효과 생성
     this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
     this.judgmentDisplayTime = performance.now();
+    this.perfectCount++;
   }
 
   private registerGood() {
@@ -756,6 +757,7 @@ export class GameEngine {
     this.createComboEffect(); // 콤보 효과 생성
     this.currentJudgment = { text: "GOOD", color: "#00ff00" };
     this.judgmentDisplayTime = performance.now();
+    this.goodCount++;
   }
 
   private registerNormal() {
@@ -766,6 +768,7 @@ export class GameEngine {
     this.createComboEffect(); // 콤보 효과 생성
     this.currentJudgment = { text: "NORMAL", color: "#4488ff" };
     this.judgmentDisplayTime = performance.now();
+    this.normalCount++;
   }
 
   private registerMiss() {
