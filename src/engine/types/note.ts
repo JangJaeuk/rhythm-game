@@ -17,4 +17,5 @@ export interface Note {
   duration?: number;
   isHeld?: boolean;
   longNoteState?: LongNoteState;
+  startCombo?: number;
 }

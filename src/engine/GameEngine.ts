@@ -307,6 +307,8 @@ export class GameEngine {
         this.judgeNote(minTimeDiff);
         // 판정이 노멀 이상인 경우
         if (this.getIsEffectiveNodeRange(minTimeDiff)) {
+          // 현재 콤보 저장
+          closestNote.startCombo = this.combo;
           // 액티브 효과 주기
           this.activateLaneEffect(lane, true);
           // 누른 상태로 변경
@@ -351,6 +353,28 @@ export class GameEngine {
       else if (this.getIsEffectiveNodeRange(timeDiff)) {
         this.judgeNote(timeDiff);
         note.longNoteState = LongNoteState.COMPLETED;
+
+        // 롱노트로 얻어야 할 총 콤보 수 계산
+        const expectedComboGain =
+          Math.ceil((note.duration || 0) / INTERVAL_IN_LONG_NOTE_ACTIVE) - 1;
+        // 실제로 얻은 콤보 수 계산
+        const actualComboGain = this.combo - (note.startCombo || 0);
+
+        // 콤보 수가 부족하면 보정
+        if (actualComboGain < expectedComboGain) {
+          const missingCombos = expectedComboGain - actualComboGain;
+
+          for (let i = 0; i < missingCombos; i++) {
+            // 판정 범위에 따라 다른 판정 적용
+            if (Math.abs(timeDiff) <= PERFECT_RANGE) {
+              this.registerPerfect();
+            } else if (Math.abs(timeDiff) <= GOOD_RANGE) {
+              this.registerGood();
+            } else {
+              this.registerNormal();
+            }
+          }
+        }
       }
       note.isHeld = false;
     }
