@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MUSIC_LIST } from "../constants/music";
-import { GameEngine } from "../engine/GameEngine";
+import { AudioManager } from "../engine/managers/AudioManager";
 import { useBrowserCheck } from "../hooks/useBrowserCheck";
 import { useGame } from "../hooks/useGame";
 import { useGameAudio } from "../hooks/useGameAudio";
@@ -90,7 +90,7 @@ function Game() {
 
     startCountdown();
 
-    const initPromise = GameEngine.initializeAudioBase(audioRef.current);
+    const initPromise = AudioManager.initializeAudioBase(audioRef.current);
 
     // 둘 다 완료될 때까지 대기
     await Promise.all([countdownPromise(), initPromise]);

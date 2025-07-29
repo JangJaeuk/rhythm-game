@@ -18,10 +18,10 @@ import {
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
   TIME_CONSIDERING_PASSED,
 } from "./constants/gameBase";
+import { AudioManager } from "./managers/AudioManager";
 import { LaneBackgroundEffect, LaneEffect } from "./types/effect";
 import { Judgment } from "./types/judgment";
 import { LongNoteState, Note, NoteType } from "./types/note";
-import { measureAudioLatency } from "./utils/audio";
 
 // 타입 정의
 interface EffectParticle {
@@ -52,13 +52,11 @@ interface Effect {
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private audio: HTMLAudioElement | null;
   private notes: Note[] = [];
   private activeNotes: Note[] = [];
   private isRunning: boolean = false;
-  private isPaused: boolean = false;
+  private isGameOver: boolean = false;
   private startTime: number = 0;
-  private audioStartTime: number = 0; // 오디오 시작 시점의 currentTime
   private lastTimestamp: number = 0;
   private combo: number = 0;
   private currentJudgment: Judgment | null = null;
@@ -76,17 +74,10 @@ export class GameEngine {
     .map(() => ({
       active: false,
     }));
-  private onGameOver: () => void;
-  private dataArray?: Uint8Array;
   private previousHeights: number[] = [];
   private readonly SMOOTHING_FACTOR = 0.3;
 
-  private static audioContext?: AudioContext;
-  private static analyser?: AnalyserNode;
-  private static audioSource?: MediaElementAudioSourceNode;
-  private static isAudioInitialized: boolean = false;
-  private static connectedAudioElement?: HTMLAudioElement;
-  private static latency: number = 0;
+  private audioManager: AudioManager;
 
   score: number = 0;
   maxCombo: number = 0;
@@ -94,11 +85,6 @@ export class GameEngine {
   goodCount: number = 0;
   normalCount: number = 0;
   missCount: number = 0;
-
-  private previousIntensities: number[] = [];
-  private readonly HISTORY_SIZE = 4;
-  private maxIntensity: number = 0;
-  private readonly DECAY_FACTOR = 0.95; // 최대값 감쇠 계수
 
   // 캔버스 크기에 따른 스케일 계산
   private get scale() {
@@ -131,7 +117,7 @@ export class GameEngine {
 
   // 일시정지 버튼 클릭 체크
   public isPauseButtonClicked(x: number, y: number): boolean {
-    if (!this.isRunning || this.isPaused) return false;
+    if (!this.isRunning) return false;
 
     const scale = this.scale;
     const buttonX =
@@ -158,14 +144,13 @@ export class GameEngine {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Failed to get 2D context");
     this.ctx = ctx;
-    this.audio = audio;
-    this.audio?.addEventListener("ended", () => {
-      this.handleGameOver();
-    });
-    this.onGameOver = onGameOver;
 
-    this.initializeAudio();
     this.setupKeyboardListeners();
+
+    this.audioManager = new AudioManager(audio, () => {
+      this.isGameOver = true;
+      onGameOver();
+    });
   }
 
   private setupKeyboardListeners() {
@@ -177,7 +162,7 @@ export class GameEngine {
     };
 
     window.addEventListener("keydown", (e) => {
-      if (!this.isRunning || this.isPaused) return;
+      if (!this.isRunning || this.isGameOver) return;
       const lane = keyMap[e.code];
       if (lane !== undefined) {
         this.handleKeyPress(lane);
@@ -185,7 +170,7 @@ export class GameEngine {
     });
 
     window.addEventListener("keyup", (e) => {
-      if (!this.isRunning || this.isPaused) return;
+      if (!this.isRunning || this.isGameOver) return;
       const lane = keyMap[e.code];
       if (lane !== undefined) {
         this.handleKeyRelease(lane);
@@ -196,7 +181,7 @@ export class GameEngine {
   public setNotes(notes: Note[]) {
     const adjustedNotes = notes.map((note) => ({
       ...note,
-      timing: note.timing + GameEngine.latency,
+      timing: note.timing + AudioManager.latency,
     }));
 
     this.notes = [...adjustedNotes].sort((a, b) => a.timing - b.timing);
@@ -204,13 +189,10 @@ export class GameEngine {
 
   public start() {
     this.isRunning = true;
+    this.isGameOver = false;
     this.startTime = performance.now();
     this.lastTimestamp = this.startTime;
-    this.audioStartTime = this.audio?.currentTime || 0;
-
-    if (GameEngine.audioContext?.state === "suspended") {
-      GameEngine.audioContext.resume();
-    }
+    this.audioManager.startAudio();
 
     requestAnimationFrame(this.update.bind(this));
   }
@@ -218,6 +200,7 @@ export class GameEngine {
   // 게임 상태 초기화 시 모든 레인 이펙트도 초기화
   public stop() {
     this.isRunning = false;
+    this.isGameOver = false;
     this.reset();
 
     // 모든 레인 이펙트 초기화
@@ -228,7 +211,7 @@ export class GameEngine {
   }
 
   public pause() {
-    this.isPaused = true;
+    this.isRunning = false;
 
     // 모든 레인 이펙트 초기화
     for (let i = 0; i < LANE_COUNT; i++) {
@@ -238,8 +221,8 @@ export class GameEngine {
   }
 
   public resume() {
-    if (this.isPaused) {
-      this.isPaused = false;
+    if (!this.isRunning) {
+      this.isRunning = true;
       this.lastTimestamp = performance.now();
       requestAnimationFrame(this.update.bind(this));
     }
@@ -263,10 +246,7 @@ export class GameEngine {
     // 레인 백그라운드
     this.activateLaneBackgroundEffect(lane);
 
-    // 오디오 시간 기준으로 현재 시간 계산
-    const currentAudioTime =
-      (this.audio?.currentTime || 0) - this.audioStartTime;
-    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+    const currentTime = this.audioManager.getCurrentTime();
 
     // 해당 레인의 판정 가능한 노트들 찾기
     const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
@@ -324,9 +304,7 @@ export class GameEngine {
 
   private handleKeyRelease(lane: number) {
     // 오디오 시간 기준으로 현재 시간 계산
-    const currentAudioTime =
-      (this.audio?.currentTime || 0) - this.audioStartTime;
-    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+    const currentTime = this.audioManager.getCurrentTime();
 
     const notesInLane = this.activeNotes.filter(
       (note) =>
@@ -840,12 +818,6 @@ export class GameEngine {
     });
   }
 
-  // 게임 종료 처리 함수 추가
-  private handleGameOver() {
-    this.isRunning = false;
-    this.onGameOver();
-  }
-
   // 판정 그리기
   private drawJudgment() {
     if (
@@ -874,10 +846,10 @@ export class GameEngine {
 
   // 비주얼라이저 그리기 함수 추가
   private drawVisualizer() {
-    if (!GameEngine.analyser || !this.dataArray) return;
+    if (!AudioManager.analyser || !this.audioManager.dataArray) return;
 
     try {
-      GameEngine.analyser.getByteFrequencyData(this.dataArray);
+      AudioManager.analyser.getByteFrequencyData(this.audioManager.dataArray);
 
       const centerX = this.canvas.width / 2;
       const centerY = this.canvas.height / 2;
@@ -887,7 +859,10 @@ export class GameEngine {
       const angleStep = (Math.PI * 2) / barCount;
 
       // 주파수 데이터를 로그 스케일로 재배치
-      const frequencyData = this.processFrequencyData(this.dataArray, barCount);
+      const frequencyData = this.audioManager.processFrequencyData(
+        this.audioManager.dataArray,
+        barCount
+      );
 
       // 초기화가 필요한 경우 previousHeights 배열 초기화
       if (this.previousHeights.length !== barCount) {
@@ -948,76 +923,6 @@ export class GameEngine {
     }
   }
 
-  private processFrequencyData(
-    data: Uint8Array,
-    targetLength: number
-  ): number[] {
-    const dataLength = data.length;
-
-    // 비트와 멜로디 주파수 대역 분리
-    const bassStart = Math.floor(dataLength * 0.05); // ~100Hz
-    const bassEnd = Math.floor(dataLength * 0.15); // ~300Hz
-    const melodyStart = Math.floor(dataLength * 0.15); // ~300Hz
-    const melodyEnd = Math.floor(dataLength * 0.4); // ~2kHz
-
-    // 비트(저주파) 대역의 에너지 계산
-    let bassSum = 0;
-    for (let i = bassStart; i < bassEnd; i++) {
-      bassSum += data[i];
-    }
-    const bassEnergy = bassSum / (bassEnd - bassStart);
-
-    // 멜로디 대역의 에너지 계산
-    let melodySum = 0;
-    let maxValue = 0;
-    for (let i = melodyStart; i < melodyEnd; i++) {
-      melodySum += data[i];
-      maxValue = Math.max(maxValue, data[i]);
-    }
-    const melodyAvg = melodySum / (melodyEnd - melodyStart);
-
-    // 비트와 멜로디 조합
-    const currentIntensity = Math.max(
-      bassEnergy * 1.2, // 비트에 가중치
-      maxValue * 0.7 + melodyAvg * 0.3
-    );
-
-    // 최대값 업데이트 (서서히 감소하는 최대값)
-    this.maxIntensity = Math.max(
-      currentIntensity,
-      this.maxIntensity * this.DECAY_FACTOR
-    );
-
-    // 이전 값들과 비교하여 변화 감지
-    this.previousIntensities.push(currentIntensity);
-    if (this.previousIntensities.length > this.HISTORY_SIZE) {
-      this.previousIntensities.shift();
-    }
-
-    // 변화량 계산 (최근 값들의 변동성)
-    let variability = 0;
-    for (let i = 1; i < this.previousIntensities.length; i++) {
-      const delta = Math.abs(
-        this.previousIntensities[i] - this.previousIntensities[i - 1]
-      );
-      variability += delta;
-    }
-    variability /= this.previousIntensities.length;
-
-    // 동적 범위 조정을 위한 정규화
-    const normalizedIntensity = currentIntensity / (this.maxIntensity || 1);
-
-    // 변화량에 따른 증폭 및 진동 효과
-    const oscillation = Math.sin(Date.now() / 50) * 0.1; // 미세한 진동 추가
-    const amplificationFactor = 0.7 + variability / 50 + oscillation;
-
-    // 최종 강도 계산 (더 부드러운 곡선)
-    const amplifiedIntensity =
-      Math.pow(normalizedIntensity, 0.4) * 255 * amplificationFactor;
-
-    return new Array(targetLength).fill(amplifiedIntensity);
-  }
-
   private normalizeHeight(value: number): number {
     const minHeight = 2; // 최소 높이 더 감소
     const maxHeight = 18; // 최대 높이 감소
@@ -1031,7 +936,7 @@ export class GameEngine {
 
   // 일시정지 버튼 그리기
   private drawPauseButton() {
-    if (!this.isRunning || this.isPaused) return;
+    if (!this.isRunning) return;
 
     const scale = this.scale;
     const { width, height, margin } = this.PAUSE_BUTTON;
@@ -1070,11 +975,15 @@ export class GameEngine {
   }
 
   private drawReactiveBackground() {
-    if (!GameEngine.analyser || !this.dataArray) return;
+    if (!AudioManager.analyser || !this.audioManager.dataArray) return;
 
     try {
-      GameEngine.analyser.getByteFrequencyData(this.dataArray);
-      const intensity = this.processFrequencyData(this.dataArray, 1)[0] / 255;
+      AudioManager.analyser.getByteFrequencyData(this.audioManager.dataArray);
+      const intensity =
+        this.audioManager.processFrequencyData(
+          this.audioManager.dataArray,
+          1
+        )[0] / 255;
 
       // 배경 그라데이션
       const gradient = this.ctx.createLinearGradient(
@@ -1124,7 +1033,11 @@ export class GameEngine {
       return;
     }
 
-    const intensity = this.processFrequencyData(this.dataArray!, 1)[0] / 255;
+    const intensity =
+      this.audioManager.processFrequencyData(
+        this.audioManager.dataArray!,
+        1
+      )[0] / 255;
     let writeIndex = 0;
 
     for (let i = 0; i < this.particles.length; i++) {
@@ -1160,9 +1073,7 @@ export class GameEngine {
     const scale = this.scale;
     const scaledLaneWidth = this.scaledLaneWidth;
     const scaledJudgementLineY = this.scaledJudgementLineY;
-    const currentAudioTime =
-      (this.audio?.currentTime || 0) - this.audioStartTime;
-    const currentTime = currentAudioTime * 1000;
+    const currentTime = this.audioManager.getCurrentTime();
 
     // 전체 상태 한 번만 저장
     ctx.save();
@@ -1318,7 +1229,7 @@ export class GameEngine {
   }
 
   private update(timestamp: number) {
-    if (!this.isRunning || this.isPaused) return;
+    if (!this.isRunning && !this.isGameOver) return;
 
     const frameInterval = 1000 / FPS;
     const deltaTime = timestamp - this.lastTimestamp;
@@ -1330,60 +1241,49 @@ export class GameEngine {
 
     this.lastTimestamp = timestamp;
 
+    // 게임 오버가 아닐 때만 게임 로직 실행
     // 오디오 시간 기준으로 게임 시간 계산
-    const currentAudioTime =
-      (this.audio?.currentTime || 0) - this.audioStartTime;
-    const currentTime = currentAudioTime * 1000; // 초를 밀리초로 변환
+    if (!this.isGameOver) {
+      const currentTime = this.audioManager.getCurrentTime();
 
-    this.updateLaneEffects(timestamp);
-    this.updateLongNotes(currentTime);
+      this.updateLaneEffects(timestamp);
+      this.updateLongNotes(currentTime);
 
-    while (
-      this.notes.length > 0 &&
-      this.notes[0].timing <= currentTime + 2000
-    ) {
-      const note = this.notes.shift()!;
-      if (note.type === NoteType.LONG) {
-        note.longNoteState = LongNoteState.WAITING;
-      }
-      this.activeNotes.push(note);
-    }
-
-    this.activeNotes = this.activeNotes.filter((note) => {
-      const noteY =
-        this.scaledJudgementLineY -
-        ((note.timing - currentTime) / 2) *
-          (this.canvas.height / CANVAS_HEIGHT);
-
-      if (noteY > this.scaledJudgementLineY + this.scaledPassedLineY) {
-        if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
-          this.registerMiss();
-          return false;
+      while (
+        this.notes.length > 0 &&
+        this.notes[0].timing <= currentTime + 2000
+      ) {
+        const note = this.notes.shift()!;
+        if (note.type === NoteType.LONG) {
+          note.longNoteState = LongNoteState.WAITING;
         }
+        this.activeNotes.push(note);
       }
 
-      if (note.type === NoteType.LONG) {
-        const noteEndTime = note.timing + (note.duration || 0);
-        return currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
-      }
+      this.activeNotes = this.activeNotes.filter((note) => {
+        const noteY =
+          this.scaledJudgementLineY -
+          ((note.timing - currentTime) / 2) *
+            (this.canvas.height / CANVAS_HEIGHT);
 
-      return noteY <= this.scaledJudgementLineY + this.scaledPassedLineY;
-    });
+        if (noteY > this.scaledJudgementLineY + this.scaledPassedLineY) {
+          if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
+            this.registerMiss();
+            return false;
+          }
+        }
+
+        if (note.type === NoteType.LONG) {
+          const noteEndTime = note.timing + (note.duration || 0);
+          return currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
+        }
+
+        return noteY <= this.scaledJudgementLineY + this.scaledPassedLineY;
+      });
+    }
 
     this.draw();
     requestAnimationFrame(this.update.bind(this));
-  }
-
-  // 오디오 초기화 함수 추가
-  private async initializeAudio() {
-    try {
-      const bufferLength = GameEngine.analyser?.frequencyBinCount || 0;
-      this.dataArray = new Uint8Array(bufferLength);
-      this.previousIntensities = [];
-      this.maxIntensity = 0;
-    } catch (error) {
-      console.error("Failed to initialize audio:", error);
-    }
   }
 
   private getComboMultiplier(): number {
@@ -1391,77 +1291,6 @@ export class GameEngine {
     else if (this.combo >= 40) return 1.3;
     else if (this.combo >= 20) return 1.2;
     else return 1.0;
-  }
-
-  static async initializeAudioBase(audio: HTMLAudioElement) {
-    try {
-      // 이미 초기화되어 있고 같은 오디오 엘리먼트인 경우
-      if (
-        GameEngine.connectedAudioElement === audio &&
-        GameEngine.isAudioInitialized
-      ) {
-        if (!GameEngine.latency) {
-          GameEngine.latency = await measureAudioLatency(
-            GameEngine.audioContext!
-          );
-        }
-        return;
-      }
-
-      // 기존 연결 해제
-      if (GameEngine.audioSource) {
-        GameEngine.audioSource.disconnect();
-      }
-      if (GameEngine.analyser) {
-        GameEngine.analyser.disconnect();
-      }
-
-      // 새로운 AudioContext 생성 및 연결
-      if (
-        !GameEngine.audioContext ||
-        GameEngine.audioContext.state === "closed"
-      ) {
-        GameEngine.audioContext = new AudioContext();
-      }
-
-      try {
-        GameEngine.analyser = GameEngine.audioContext.createAnalyser();
-        GameEngine.audioSource =
-          GameEngine.audioContext.createMediaElementSource(audio);
-
-        GameEngine.audioSource.connect(GameEngine.analyser);
-        GameEngine.analyser.connect(GameEngine.audioContext.destination);
-
-        // 더 빠른 반응을 위한 설정 조정
-        GameEngine.analyser.fftSize = 1024;
-        GameEngine.analyser.smoothingTimeConstant = 0.1;
-        GameEngine.analyser.minDecibels = -65;
-        GameEngine.analyser.maxDecibels = -12;
-
-        GameEngine.connectedAudioElement = audio;
-        GameEngine.isAudioInitialized = true;
-
-        // 레이턴시 측정
-        GameEngine.latency = await measureAudioLatency(GameEngine.audioContext);
-        console.log("Measured latency:", GameEngine.latency, "ms");
-      } catch (error) {
-        // 이미 연결된 경우 기존 연결 재사용
-        if (
-          error instanceof DOMException &&
-          error.name === "InvalidStateError"
-        ) {
-          if (!GameEngine.latency) {
-            GameEngine.latency = await measureAudioLatency(
-              GameEngine.audioContext
-            );
-          }
-        } else {
-          throw error;
-        }
-      }
-    } catch (error) {
-      console.error("Failed to initialize audio base:", error);
-    }
   }
 
   // 클린업 처리 개선
