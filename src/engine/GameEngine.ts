@@ -3,7 +3,6 @@ import {
   CANVAS_WIDTH,
   FPS,
   GOOD_RANGE,
-  GOOD_SCORE,
   INTERVAL_IN_LONG_NOTE_ACTIVE,
   JUDGEMENT_LINE_Y,
   JUDGEMENT_RANGE,
@@ -11,15 +10,14 @@ import {
   LANE_COUNT,
   LANE_WIDTH,
   NORMAL_RANGE,
-  NORMAL_SCORE,
   PASSED_LINE_Y,
   PERFECT_RANGE,
-  PERFECT_SCORE,
   SAFE_TIME_IN_LONG_NOTE_ACTIVE,
   TIME_CONSIDERING_PASSED,
 } from "./constants/gameBase";
 import { AudioManager } from "./managers/AudioManager";
 import { InputManager } from "./managers/InputManager";
+import { ScoreManager } from "./managers/ScoreManager";
 import { LaneBackgroundEffect, LaneEffect } from "./types/effect";
 import { Judgment } from "./types/judgment";
 import { LongNoteState, Note, NoteType } from "./types/note";
@@ -57,7 +55,6 @@ export class GameEngine {
   private activeNotes: Note[] = [];
   private startTime: number = 0;
   private lastTimestamp: number = 0;
-  private combo: number = 0;
   private currentJudgment: Judgment | null = null;
   private judgmentDisplayTime: number = 0;
   private lastLongNoteUpdate: { [key: number]: number } = {};
@@ -78,16 +75,10 @@ export class GameEngine {
 
   private audioManager: AudioManager;
   private inputManager: InputManager;
+  private scoreManager: ScoreManager;
 
   isRunning: boolean = false;
   isGameOver: boolean = false;
-
-  score: number = 0;
-  maxCombo: number = 0;
-  perfectCount: number = 0;
-  goodCount: number = 0;
-  normalCount: number = 0;
-  missCount: number = 0;
 
   // 캔버스 크기에 따른 스케일 계산
   private get scale() {
@@ -117,6 +108,18 @@ export class GameEngine {
     height: 40,
     margin: 20,
   };
+
+  public getScoreInfo() {
+    return {
+      score: this.scoreManager.getScore(),
+      combo: this.scoreManager.getCombo(),
+      maxCombo: this.scoreManager.getMaxCombo(),
+      perfectCount: this.scoreManager.getPerfectCount(),
+      goodCount: this.scoreManager.getGoodCount(),
+      normalCount: this.scoreManager.getNormalCount(),
+      missCount: this.scoreManager.getMissCount(),
+    };
+  }
 
   // 일시정지 버튼 클릭 체크
   public isPauseButtonClicked(x: number, y: number): boolean {
@@ -158,6 +161,8 @@ export class GameEngine {
       this.handleKeyPress.bind(this),
       this.handleKeyRelease.bind(this)
     );
+
+    this.scoreManager = new ScoreManager();
   }
 
   public setNotes(notes: Note[]) {
@@ -213,14 +218,9 @@ export class GameEngine {
   private reset() {
     this.notes = [];
     this.activeNotes = [];
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
     this.currentJudgment = null;
-    this.perfectCount = 0;
-    this.goodCount = 0;
-    this.normalCount = 0;
-    this.missCount = 0;
+
+    this.scoreManager.reset();
   }
 
   private handleKeyPress(lane: number) {
@@ -270,7 +270,7 @@ export class GameEngine {
         // 판정이 노멀 이상인 경우
         if (this.getIsEffectiveNodeRange(minTimeDiff)) {
           // 현재 콤보 저장
-          closestNote.startCombo = this.combo;
+          closestNote.startCombo = this.scoreManager.getCombo();
           // 액티브 효과 주기
           this.activateLaneEffect(lane, true);
           // 누른 상태로 변경
@@ -318,7 +318,8 @@ export class GameEngine {
         const expectedComboGain =
           Math.ceil((note.duration || 0) / INTERVAL_IN_LONG_NOTE_ACTIVE) - 1;
         // 실제로 얻은 콤보 수 계산
-        const actualComboGain = this.combo - (note.startCombo || 0);
+        const actualComboGain =
+          this.scoreManager.getCombo() - (note.startCombo || 0);
 
         // 콤보 수가 부족하면 보정
         if (actualComboGain < expectedComboGain) {
@@ -641,9 +642,11 @@ export class GameEngine {
   private createComboEffect() {
     // 이전 효과가 아직 활성 상태면 업데이트만 하고 새로 생성하지 않음
     const existingEffect = this.comboEffects[0];
+    const currentCombo = this.scoreManager.getCombo();
+
     if (existingEffect && performance.now() - existingEffect.timestamp < 200) {
-      existingEffect.combo = this.combo;
-      existingEffect.color = this.getComboColor(this.combo);
+      existingEffect.combo = currentCombo;
+      existingEffect.color = this.getComboColor(currentCombo);
       existingEffect.timestamp = performance.now();
       existingEffect.scale = 1.5;
       existingEffect.alpha = 1.0;
@@ -657,12 +660,12 @@ export class GameEngine {
     const y = this.canvas.height * 0.25;
 
     this.comboEffects.push({
-      combo: this.combo,
+      combo: currentCombo,
       x,
       y,
       scale: 1.5,
       alpha: 1.0,
-      color: this.getComboColor(this.combo),
+      color: this.getComboColor(currentCombo),
       timestamp: performance.now(),
     });
   }
@@ -725,43 +728,34 @@ export class GameEngine {
   }
 
   private registerPerfect() {
-    const comboMultiplier = this.getComboMultiplier();
-    this.score += PERFECT_SCORE * comboMultiplier;
-    this.combo++;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.createComboEffect(); // 콤보 효과 생성
+    this.scoreManager.registerPerfect();
+
+    this.createComboEffect();
     this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
     this.judgmentDisplayTime = performance.now();
-    this.perfectCount++;
   }
 
   private registerGood() {
-    const comboMultiplier = this.getComboMultiplier();
-    this.score += GOOD_SCORE * comboMultiplier;
-    this.combo++;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.createComboEffect(); // 콤보 효과 생성
+    this.scoreManager.registerGood();
+
+    this.createComboEffect();
     this.currentJudgment = { text: "GOOD", color: "#00ff00" };
     this.judgmentDisplayTime = performance.now();
-    this.goodCount++;
   }
 
   private registerNormal() {
-    const comboMultiplier = this.getComboMultiplier();
-    this.score += NORMAL_SCORE * comboMultiplier;
-    this.combo++;
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.createComboEffect(); // 콤보 효과 생성
+    this.scoreManager.registerNormal();
+
+    this.createComboEffect();
     this.currentJudgment = { text: "NORMAL", color: "#4488ff" };
     this.judgmentDisplayTime = performance.now();
-    this.normalCount++;
   }
 
   private registerMiss() {
-    this.combo = 0;
+    this.scoreManager.registerMiss();
+
     this.currentJudgment = { text: "MISS", color: "#ff0000" };
     this.judgmentDisplayTime = performance.now();
-    this.missCount++;
   }
 
   private activateLaneEffect(lane: number, isLongNote: boolean = false) {
@@ -1174,10 +1168,18 @@ export class GameEngine {
     ctx.fillStyle = "#ffffff";
 
     // 점수 및 콤보 표시
-    ctx.fillText(`Score: ${this.score}`, 10 * scale, 30 * scale);
-    ctx.fillText(`Combo: ${this.combo}`, 10 * scale, 60 * scale);
     ctx.fillText(
-      `Bonus: x${this.getComboMultiplier()}`,
+      `Score: ${this.scoreManager.getScore()}`,
+      10 * scale,
+      30 * scale
+    );
+    ctx.fillText(
+      `Combo: ${this.scoreManager.getCombo()}`,
+      10 * scale,
+      60 * scale
+    );
+    ctx.fillText(
+      `Bonus: x${this.scoreManager.getComboMultiplier()}`,
       10 * scale,
       90 * scale
     );
@@ -1266,13 +1268,6 @@ export class GameEngine {
 
     this.draw();
     requestAnimationFrame(this.update.bind(this));
-  }
-
-  private getComboMultiplier(): number {
-    if (this.combo >= 60) return 1.5;
-    else if (this.combo >= 40) return 1.3;
-    else if (this.combo >= 20) return 1.2;
-    else return 1.0;
   }
 
   // 클린업 처리 개선

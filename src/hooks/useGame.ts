@@ -21,12 +21,13 @@ export function useGame(
     if (!canvasRef.current || !audioRef.current) return;
 
     const engine = new GameEngine(canvasRef.current, audioRef.current, () => {
-      setMaxCombo(engine.maxCombo);
-      setScore(engine.score);
-      setPerfectCount(engine.perfectCount);
-      setGoodCount(engine.goodCount);
-      setNormalCount(engine.normalCount);
-      setMissCount(engine.missCount);
+      const scoreInfo = engine.getScoreInfo();
+      setMaxCombo(scoreInfo.maxCombo);
+      setScore(scoreInfo.score);
+      setPerfectCount(scoreInfo.perfectCount);
+      setGoodCount(scoreInfo.goodCount);
+      setNormalCount(scoreInfo.normalCount);
+      setMissCount(scoreInfo.missCount);
       setGameState("ended");
     });
 

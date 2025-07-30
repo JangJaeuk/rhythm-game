@@ -16,6 +16,13 @@ export const PERFECT_SCORE = 1000;
 export const GOOD_SCORE = 600;
 export const NORMAL_SCORE = 300;
 
+export const COMBO_MULTIPLIERS = {
+  LEVEL_3: { threshold: 60, multiplier: 1.5 },
+  LEVEL_2: { threshold: 40, multiplier: 1.3 },
+  LEVEL_1: { threshold: 20, multiplier: 1.2 },
+  BASE: { threshold: 0, multiplier: 1.0 },
+} as const;
+
 export const PERFECT_RANGE = 60;
 export const GOOD_RANGE = 120;
 export const NORMAL_RANGE = 240;
