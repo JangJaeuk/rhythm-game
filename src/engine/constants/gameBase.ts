@@ -16,13 +16,13 @@ export const PERFECT_SCORE = 1000;
 export const GOOD_SCORE = 600;
 export const NORMAL_SCORE = 300;
 
-export const PERFECT_RANGE = 70;
-export const GOOD_RANGE = 130;
-export const NORMAL_RANGE = 250;
+export const PERFECT_RANGE = 60;
+export const GOOD_RANGE = 120;
+export const NORMAL_RANGE = 240;
 export const JUDGEMENT_RANGE = 400;
 
 // 노트가 어느 정도 지나간 건 봐주기 위한 시간
-export const TIME_CONSIDERING_PASSED = 30;
+export const TIME_CONSIDERING_PASSED = 35;
 // 긴 노트 누르는 동안 증가하는 콤보 인터벌
 export const INTERVAL_IN_LONG_NOTE_ACTIVE = 100;
 // 긴 노트 누르는 동안 인터벌 증가할때 생기는 딜레이 고려한 안전 시간?

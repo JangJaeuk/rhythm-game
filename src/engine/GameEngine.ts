@@ -19,6 +19,7 @@ import {
   TIME_CONSIDERING_PASSED,
 } from "./constants/gameBase";
 import { AudioManager } from "./managers/AudioManager";
+import { InputManager } from "./managers/InputManager";
 import { LaneBackgroundEffect, LaneEffect } from "./types/effect";
 import { Judgment } from "./types/judgment";
 import { LongNoteState, Note, NoteType } from "./types/note";
@@ -54,8 +55,6 @@ export class GameEngine {
   private ctx: CanvasRenderingContext2D;
   private notes: Note[] = [];
   private activeNotes: Note[] = [];
-  private isRunning: boolean = false;
-  private isGameOver: boolean = false;
   private startTime: number = 0;
   private lastTimestamp: number = 0;
   private combo: number = 0;
@@ -78,6 +77,10 @@ export class GameEngine {
   private readonly SMOOTHING_FACTOR = 0.3;
 
   private audioManager: AudioManager;
+  private inputManager: InputManager;
+
+  isRunning: boolean = false;
+  isGameOver: boolean = false;
 
   score: number = 0;
   maxCombo: number = 0;
@@ -145,37 +148,16 @@ export class GameEngine {
     if (!ctx) throw new Error("Failed to get 2D context");
     this.ctx = ctx;
 
-    this.setupKeyboardListeners();
-
     this.audioManager = new AudioManager(audio, () => {
       this.isGameOver = true;
       onGameOver();
     });
-  }
 
-  private setupKeyboardListeners() {
-    const keyMap: { [key: string]: number } = {
-      KeyD: 0,
-      KeyF: 1,
-      KeyJ: 2,
-      KeyK: 3,
-    };
-
-    window.addEventListener("keydown", (e) => {
-      if (!this.isRunning || this.isGameOver) return;
-      const lane = keyMap[e.code];
-      if (lane !== undefined) {
-        this.handleKeyPress(lane);
-      }
-    });
-
-    window.addEventListener("keyup", (e) => {
-      if (!this.isRunning || this.isGameOver) return;
-      const lane = keyMap[e.code];
-      if (lane !== undefined) {
-        this.handleKeyRelease(lane);
-      }
-    });
+    this.inputManager = new InputManager(
+      this,
+      this.handleKeyPress.bind(this),
+      this.handleKeyRelease.bind(this)
+    );
   }
 
   public setNotes(notes: Note[]) {
@@ -1316,5 +1298,7 @@ export class GameEngine {
     this.effectParticlePool = [];
     this.backgroundParticlePool = [];
     this.effectPool = [];
+
+    this.inputManager.destroy();
   }
 }
