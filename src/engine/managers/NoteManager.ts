@@ -10,6 +10,7 @@ import {
 import { LongNoteState, Note, NoteType } from "../types/note";
 import { AudioManager } from "./AudioManager";
 import { GameScaleManager } from "./GameScaleManager";
+import { NotePoolManager } from "./NotePoolManager";
 import { ScoreManager } from "./ScoreManager";
 
 export interface NoteJudgement {
@@ -24,24 +25,43 @@ export class NoteManager {
   private notes: Note[] = [];
   private activeNotes: Note[] = [];
   private lastLongNoteUpdate: { [key: number]: number } = {};
+  private notePool: NotePoolManager;
+  private readonly CLEANUP_INTERVAL = 1000; // 1초마다 정리
+  private lastCleanupTime: number = 0;
 
   constructor(
     private audioManager: AudioManager,
     private scoreManager: ScoreManager,
     private scaleManager: GameScaleManager,
     private onJudgement: (judgement: NoteJudgement) => void
-  ) {}
+  ) {
+    this.notePool = new NotePoolManager();
+  }
 
   public setNotes(notes: Note[]) {
-    const adjustedNotes = notes.map((note) => ({
-      ...note,
-      timing: note.timing + AudioManager.latency,
-    }));
+    // 기존 노트들을 풀에 반환
+    this.notes.forEach((note) => this.notePool.release(note));
+    this.notes = [];
 
-    this.notes = [...adjustedNotes].sort((a, b) => a.timing - b.timing);
+    // 새로운 노트들을 풀에서 가져와서 설정
+    this.notes = notes
+      .map((noteData) => {
+        const note = this.notePool.acquire(noteData.type);
+        note.lane = noteData.lane;
+        note.timing = noteData.timing + AudioManager.latency;
+        if (noteData.type === NoteType.LONG) {
+          note.duration = noteData.duration;
+        }
+        return note;
+      })
+      .sort((a, b) => a.timing - b.timing);
   }
 
   public reset() {
+    // 모든 노트를 풀에 반환
+    this.notes.forEach((note) => this.notePool.release(note));
+    this.activeNotes.forEach((note) => this.notePool.release(note));
+
     this.notes = [];
     this.activeNotes = [];
     this.lastLongNoteUpdate = {};
@@ -64,8 +84,16 @@ export class NoteManager {
       this.activeNotes.push(note);
     }
 
-    // 활성 노트 업데이트 및 필터링
-    this.activeNotes = this.activeNotes.filter((note) => {
+    // 주기적으로 정리 수행 (1초마다)
+    if (currentTime - this.lastCleanupTime >= this.CLEANUP_INTERVAL) {
+      this.cleanupInactiveNotes(currentTime);
+      this.lastCleanupTime = currentTime;
+      return;
+    }
+
+    // 활성 노트 업데이트 (필터링 없이)
+    for (let i = 0; i < this.activeNotes.length; i++) {
+      const note = this.activeNotes[i];
       const noteY = this.scaleManager.calculateNoteY(note.timing, currentTime);
 
       if (
@@ -75,21 +103,46 @@ export class NoteManager {
       ) {
         if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
           this.registerJudgement("MISS", note.lane);
-          return false;
+        }
+      }
+    }
+  }
+
+  private cleanupInactiveNotes(currentTime: number) {
+    const remainingNotes: Note[] = [];
+
+    for (const note of this.activeNotes) {
+      const noteY = this.scaleManager.calculateNoteY(note.timing, currentTime);
+      let shouldKeep = true;
+
+      if (
+        noteY >
+        this.scaleManager.scaledJudgementLineY +
+          this.scaleManager.scaledPassedLineY
+      ) {
+        if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
+          shouldKeep = false;
         }
       }
 
       if (note.type === NoteType.LONG) {
         const noteEndTime = note.timing + (note.duration || 0);
-        return currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
+        shouldKeep = currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
+      } else {
+        shouldKeep =
+          noteY <=
+          this.scaleManager.scaledJudgementLineY +
+            this.scaleManager.scaledPassedLineY;
       }
 
-      return (
-        noteY <=
-        this.scaleManager.scaledJudgementLineY +
-          this.scaleManager.scaledPassedLineY
-      );
-    });
+      if (shouldKeep) {
+        remainingNotes.push(note);
+      } else {
+        this.notePool.release(note);
+      }
+    }
+
+    this.activeNotes = remainingNotes;
   }
 
   public handleKeyPress(lane: number): Note | null {
@@ -123,8 +176,9 @@ export class NoteManager {
         const judgement = this.judgeNote(minTimeDiff);
         if (judgement) {
           this.registerJudgement(judgement, lane);
-          // 액티브 노트 목록에서 제거
+          // 액티브 노트 목록에서 제거하고 풀에 반환
           this.activeNotes = this.activeNotes.filter((n) => n !== closestNote);
+          this.notePool.release(closestNote);
           return closestNote;
         }
       }
