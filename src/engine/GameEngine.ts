@@ -183,11 +183,11 @@ export class GameEngine {
     const ctx = this.ctx;
     const currentTime = this.audioManager.getCurrentTime();
 
-    // 전체 상태 한 번만 저장
-    ctx.save();
-
     // 캔버스 초기화
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 전체 상태 한 번만 저장
+    ctx.save();
 
     // 배경 및 레인 이펙트 그리기
     this.effectManager.drawBackground();
