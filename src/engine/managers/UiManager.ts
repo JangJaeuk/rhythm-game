@@ -1,12 +1,6 @@
-import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH,
-  JUDGEMENT_LINE_Y,
-  LANE_COLORS,
-  LANE_COUNT,
-  LANE_WIDTH,
-} from "../constants/gameBase";
+import { LANE_COLORS, LANE_COUNT } from "../constants/gameBase";
 import { LongNoteState, Note, NoteType } from "../types/note";
+import { GameScaleManager } from "./GameScaleManager";
 import { ScoreManager } from "./ScoreManager";
 
 export class UiManager {
@@ -22,13 +16,9 @@ export class UiManager {
   constructor(
     private canvas: HTMLCanvasElement,
     private ctx: CanvasRenderingContext2D,
-    private scoreManager: ScoreManager
+    private scoreManager: ScoreManager,
+    private scaleManager: GameScaleManager
   ) {}
-
-  // 캔버스 크기에 따른 스케일 계산
-  private get scale() {
-    return this.canvas.width / CANVAS_WIDTH;
-  }
 
   // 일시정지 버튼 클릭 체크
   public isPauseButtonClicked(
@@ -38,13 +28,14 @@ export class UiManager {
   ): boolean {
     if (!isRunning) return false;
 
-    const scale = this.scale;
     const buttonX =
       this.canvas.width -
-      (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
-    const buttonY = this.PAUSE_BUTTON.margin * scale;
-    const buttonWidth = this.PAUSE_BUTTON.width * scale;
-    const buttonHeight = this.PAUSE_BUTTON.height * scale;
+      this.scaleManager.scaleValue(
+        this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin
+      );
+    const buttonY = this.scaleManager.scaleValue(this.PAUSE_BUTTON.margin);
+    const buttonWidth = this.scaleManager.scaleValue(this.PAUSE_BUTTON.width);
+    const buttonHeight = this.scaleManager.scaleValue(this.PAUSE_BUTTON.height);
 
     return (
       x >= buttonX &&
@@ -62,24 +53,20 @@ export class UiManager {
 
     // 모든 노트 그리기
     for (const note of notes) {
-      const y =
-        this.scaledJudgementLineY -
-        ((note.timing - currentTime) / 2) *
-          (this.canvas.height / CANVAS_HEIGHT);
-
+      const y = this.scaleManager.calculateNoteY(note.timing, currentTime);
       this.ctx.fillStyle = LANE_COLORS[note.lane];
 
       if (note.type === NoteType.SHORT) {
-        const noteHeight = 40 * this.scale;
+        const noteHeight = this.scaleManager.scaledNoteHeight;
         this.ctx.fillRect(
-          note.lane * this.scaledLaneWidth,
+          note.lane * this.scaleManager.scaledLaneWidth,
           y - noteHeight / 2,
-          this.scaledLaneWidth,
+          this.scaleManager.scaledLaneWidth,
           noteHeight
         );
       } else {
         const duration = note.duration || 0;
-        const height = (duration / 2) * (this.canvas.height / CANVAS_HEIGHT);
+        const height = this.scaleManager.calculateLongNoteHeight(duration);
 
         // 롱노트 상태에 따른 투명도 설정
         this.ctx.globalAlpha =
@@ -90,9 +77,9 @@ export class UiManager {
               : 0.8;
 
         this.ctx.fillRect(
-          note.lane * this.scaledLaneWidth,
+          note.lane * this.scaleManager.scaledLaneWidth,
           y - height,
-          this.scaledLaneWidth,
+          this.scaleManager.scaledLaneWidth,
           height
         );
       }
@@ -100,18 +87,9 @@ export class UiManager {
     }
   }
 
-  // 실제 레인 너비 계산
-  private get scaledLaneWidth() {
-    return LANE_WIDTH * (this.canvas.width / CANVAS_WIDTH);
-  }
-
-  // 실제 판정선 Y 좌표 계산
-  private get scaledJudgementLineY() {
-    return JUDGEMENT_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
-  }
   // 레인 경계선 그리기
   public drawLaneLines() {
-    const scaledLaneWidth = this.canvas.width / LANE_COUNT;
+    const scaledLaneWidth = this.scaleManager.scaledLaneWidth;
 
     this.ctx.beginPath();
     this.ctx.globalAlpha = 0.2;
@@ -129,30 +107,28 @@ export class UiManager {
 
   // 점수 표시
   public drawScore() {
-    const scale = this.scale;
-
     // UI 요소 그리기 - 공통 상태 설정
     this.ctx.globalAlpha = 1;
     this.ctx.shadowBlur = 0;
     this.ctx.textAlign = "left";
-    this.ctx.font = `${24 * scale}px Arial`;
+    this.ctx.font = `${this.scaleManager.scaleFontSize(24)}px Arial`;
     this.ctx.fillStyle = "#ffffff";
 
     // 점수 및 콤보 표시
     this.ctx.fillText(
       `Score: ${this.scoreManager.getScore()}`,
-      10 * scale,
-      30 * scale
+      this.scaleManager.scaleValue(10),
+      this.scaleManager.scaleValue(30)
     );
     this.ctx.fillText(
       `Combo: ${this.scoreManager.getCombo()}`,
-      10 * scale,
-      60 * scale
+      this.scaleManager.scaleValue(10),
+      this.scaleManager.scaleValue(60)
     );
     this.ctx.fillText(
       `Bonus: x${this.scoreManager.getComboMultiplier()}`,
-      10 * scale,
-      90 * scale
+      this.scaleManager.scaleValue(10),
+      this.scaleManager.scaleValue(90)
     );
 
     // 일시정지 버튼
@@ -163,37 +139,44 @@ export class UiManager {
   private drawPauseButton(isRunning: boolean = true) {
     if (!isRunning) return;
 
-    const scale = this.scale;
     const { width, height, margin } = this.PAUSE_BUTTON;
 
     // 버튼 위치 계산
-    const x = this.canvas.width - (width + margin) * scale;
-    const y = margin * scale;
+    const x = this.canvas.width - this.scaleManager.scaleValue(width + margin);
+    const y = this.scaleManager.scaleValue(margin);
+    const buttonWidth = this.scaleManager.scaleValue(width);
+    const buttonHeight = this.scaleManager.scaleValue(height);
 
     // 반투명 배경
     this.ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     this.ctx.beginPath();
-    this.ctx.roundRect(x, y, width * scale, height * scale, 8 * scale);
+    this.ctx.roundRect(
+      x,
+      y,
+      buttonWidth,
+      buttonHeight,
+      this.scaleManager.scaleValue(8)
+    );
     this.ctx.fill();
 
     // 일시정지 아이콘
     this.ctx.fillStyle = "#ffffff";
-    const barWidth = 4 * scale;
-    const barHeight = 16 * scale;
-    const barMargin = 12 * scale;
+    const barWidth = this.scaleManager.scaleValue(4);
+    const barHeight = this.scaleManager.scaleValue(16);
+    const barMargin = this.scaleManager.scaleValue(12);
 
     // 왼쪽 바
     this.ctx.fillRect(
       x + barMargin,
-      y + (height * scale - barHeight) / 2,
+      y + (buttonHeight - barHeight) / 2,
       barWidth,
       barHeight
     );
 
     // 오른쪽 바
     this.ctx.fillRect(
-      x + width * scale - barMargin - barWidth,
-      y + (height * scale - barHeight) / 2,
+      x + buttonWidth - barMargin - barWidth,
+      y + (buttonHeight - barHeight) / 2,
       barWidth,
       barHeight
     );

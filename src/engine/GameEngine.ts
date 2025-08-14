@@ -1,12 +1,7 @@
-import {
-  CANVAS_HEIGHT,
-  FPS,
-  JUDGEMENT_LINE_Y,
-  LANE_COUNT,
-  PASSED_LINE_Y,
-} from "./constants/gameBase";
+import { FPS, LANE_COUNT } from "./constants/gameBase";
 import { AudioManager } from "./managers/AudioManager";
 import { EffectManager } from "./managers/EffectManager";
+import { GameScaleManager } from "./managers/GameScaleManager";
 import { InputManager } from "./managers/InputManager";
 import { NoteManager } from "./managers/NoteManager";
 import { ScoreManager } from "./managers/ScoreManager";
@@ -24,18 +19,57 @@ export class GameEngine {
   private noteManager: NoteManager;
   private effectManager: EffectManager;
   private uiManager: UiManager;
+  private scaleManager: GameScaleManager;
 
   isRunning: boolean = false;
   isGameOver: boolean = false;
 
-  // 실제 판정선 Y 좌표 계산
-  private get scaledJudgementLineY() {
-    return JUDGEMENT_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
-  }
+  constructor(
+    canvas: HTMLCanvasElement,
+    audio: HTMLAudioElement | null,
+    onGameOver: () => void
+  ) {
+    this.canvas = canvas;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to get 2D context");
 
-  // 실제 노트 통과 Y 좌표 계산
-  private get scaledPassedLineY() {
-    return PASSED_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
+    this.ctx = ctx;
+
+    this.audioManager = new AudioManager(audio, () => {
+      this.isGameOver = true;
+      onGameOver();
+    });
+
+    this.scoreManager = new ScoreManager();
+
+    this.scaleManager = new GameScaleManager(canvas);
+
+    this.noteManager = new NoteManager(
+      this.audioManager,
+      this.scoreManager,
+      this.scaleManager,
+      this.handleNoteJudgement.bind(this)
+    );
+
+    this.effectManager = new EffectManager(
+      canvas,
+      ctx,
+      this.audioManager,
+      this.scaleManager
+    );
+
+    this.uiManager = new UiManager(
+      canvas,
+      ctx,
+      this.scoreManager,
+      this.scaleManager
+    );
+
+    this.inputManager = new InputManager(
+      this,
+      this.handleKeyPress.bind(this),
+      this.handleKeyRelease.bind(this)
+    );
   }
 
   public getScoreInfo() {
@@ -53,39 +87,6 @@ export class GameEngine {
   // 일시정지 버튼 클릭 체크
   public isPauseButtonClicked(x: number, y: number): boolean {
     return this.uiManager.isPauseButtonClicked(x, y, this.isRunning);
-  }
-
-  constructor(
-    canvas: HTMLCanvasElement,
-    audio: HTMLAudioElement | null,
-    onGameOver: () => void
-  ) {
-    this.canvas = canvas;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Failed to get 2D context");
-    this.ctx = ctx;
-
-    this.audioManager = new AudioManager(audio, () => {
-      this.isGameOver = true;
-      onGameOver();
-    });
-
-    this.scoreManager = new ScoreManager();
-
-    this.noteManager = new NoteManager(
-      this.audioManager,
-      this.scoreManager,
-      this.handleNoteJudgement.bind(this)
-    );
-
-    this.effectManager = new EffectManager(canvas, ctx, this.audioManager);
-    this.uiManager = new UiManager(canvas, ctx, this.scoreManager);
-
-    this.inputManager = new InputManager(
-      this,
-      this.handleKeyPress.bind(this),
-      this.handleKeyRelease.bind(this)
-    );
   }
 
   public setNotes(notes: Note[]) {
@@ -229,12 +230,7 @@ export class GameEngine {
     // 게임 오버가 아닐 때만 게임 로직 실행
     if (!this.isGameOver) {
       this.noteManager.updateLongNotes(currentTime);
-      this.noteManager.updateNotes(
-        currentTime,
-        this.scaledJudgementLineY,
-        this.scaledPassedLineY,
-        this.canvas.height
-      );
+      this.noteManager.updateNotes(currentTime);
     }
 
     this.draw();

@@ -1,11 +1,7 @@
-import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH,
-  LANE_COLORS,
-  LANE_COUNT,
-} from "../constants/gameBase";
+import { LANE_COLORS, LANE_COUNT } from "../constants/gameBase";
 import { LaneBackgroundEffect, LaneEffect } from "../types/effect";
 import { AudioManager } from "./AudioManager";
+import { GameScaleManager } from "./GameScaleManager";
 
 interface EffectParticle {
   x: number;
@@ -79,13 +75,9 @@ export class EffectManager {
   constructor(
     private canvas: HTMLCanvasElement,
     private ctx: CanvasRenderingContext2D,
-    private audioManager: AudioManager
+    private audioManager: AudioManager,
+    private scaleManager: GameScaleManager
   ) {}
-
-  // 캔버스 크기에 따른 스케일 계산
-  private get scale() {
-    return this.canvas.width / CANVAS_WIDTH;
-  }
 
   // 레인 이펙트 관련 메서드
   public activateLaneEffect(lane: number, isLongNote: boolean = false) {
@@ -139,11 +131,8 @@ export class EffectManager {
     }
 
     const effect = this.getEffectFromPool();
-    const scaledJudgementLineY = this.canvas.height * (800 / CANVAS_HEIGHT);
-    const scaledLaneWidth = this.canvas.width / LANE_COUNT;
-
-    effect.x = (lane + 0.5) * scaledLaneWidth;
-    effect.y = scaledJudgementLineY;
+    effect.x = (lane + 0.5) * this.scaleManager.scaledLaneWidth;
+    effect.y = this.scaleManager.scaledJudgementLineY;
     effect.timestamp = performance.now();
 
     // 판정에 따른 파티클 설정
@@ -217,9 +206,8 @@ export class EffectManager {
 
   // 레인 이펙트 그리기
   public drawLaneEffects() {
-    const scale = this.scale;
-    const scaledLaneWidth = this.canvas.width / LANE_COUNT;
-    const scaledJudgementLineY = this.canvas.height * (800 / CANVAS_HEIGHT);
+    const scaledLaneWidth = this.scaleManager.scaledLaneWidth;
+    const scaledJudgementLineY = this.scaleManager.scaledJudgementLineY;
 
     for (let i = 0; i < LANE_COUNT; i++) {
       // 레인 배경 효과
@@ -249,12 +237,12 @@ export class EffectManager {
 
       if (isActive) {
         this.ctx.strokeStyle = LANE_COLORS[i];
-        this.ctx.lineWidth = 10 * scale;
-        this.ctx.shadowBlur = 15 * scale;
+        this.ctx.lineWidth = this.scaleManager.scaleValue(10);
+        this.ctx.shadowBlur = this.scaleManager.scaleValue(15);
         this.ctx.shadowColor = LANE_COLORS[i];
       } else {
         this.ctx.strokeStyle = LANE_COLORS[i];
-        this.ctx.lineWidth = 4 * scale;
+        this.ctx.lineWidth = this.scaleManager.scaleValue(4);
         this.ctx.shadowBlur = 0;
       }
 
@@ -291,7 +279,7 @@ export class EffectManager {
       this.ctx.save();
       this.ctx.globalAlpha = alpha;
       this.ctx.fillStyle = this.currentJudgement.color;
-      this.ctx.font = `bold ${28 * this.scale}px Arial`; // 36px에서 28px로 축소
+      this.ctx.font = `bold ${this.scaleManager.scaleFontSize(28)}px Arial`; // 36px에서 28px로 축소
       this.ctx.textAlign = "center";
 
       this.ctx.fillText(
@@ -313,7 +301,7 @@ export class EffectManager {
         this.ctx.arc(
           particle.x,
           particle.y,
-          particle.size * this.scale,
+          this.scaleManager.scaleValue(particle.size),
           0,
           Math.PI * 2
         );
@@ -329,22 +317,22 @@ export class EffectManager {
     if (this.comboEffects.length === 0) return;
 
     const effect = this.comboEffects[0];
-    const scale = this.scale;
+
     this.ctx.save();
 
     if (effect.alpha > 0.3) {
       this.ctx.shadowColor = effect.color;
-      this.ctx.shadowBlur = 8 * scale;
+      this.ctx.shadowBlur = this.scaleManager.scaleValue(8);
     }
 
     this.ctx.globalAlpha = effect.alpha;
-    this.ctx.font = `bold ${32 * effect.scale * scale}px Arial`;
+    this.ctx.font = `bold ${this.scaleManager.scaleFontSize(32 * effect.scale)}px Arial`;
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
 
     if (effect.alpha > 0.5) {
       this.ctx.strokeStyle = effect.color;
-      this.ctx.lineWidth = 2 * scale;
+      this.ctx.lineWidth = this.scaleManager.scaleValue(2);
       this.ctx.strokeText(`${effect.combo} COMBO!`, effect.x, effect.y);
     }
 

@@ -9,6 +9,7 @@ import {
 } from "../constants/gameBase";
 import { LongNoteState, Note, NoteType } from "../types/note";
 import { AudioManager } from "./AudioManager";
+import { GameScaleManager } from "./GameScaleManager";
 import { ScoreManager } from "./ScoreManager";
 
 export interface NoteJudgement {
@@ -24,6 +25,7 @@ export class NoteManager {
   constructor(
     private audioManager: AudioManager,
     private scoreManager: ScoreManager,
+    private scaleManager: GameScaleManager,
     private onJudgement: (judgement: NoteJudgement) => void
   ) {}
 
@@ -46,12 +48,7 @@ export class NoteManager {
     return this.activeNotes;
   }
 
-  public updateNotes(
-    currentTime: number,
-    scaledJudgementLineY: number,
-    scaledPassedLineY: number,
-    canvasHeight: number
-  ) {
+  public updateNotes(currentTime: number) {
     // 새로운 노트 활성화
     while (
       this.notes.length > 0 &&
@@ -66,11 +63,13 @@ export class NoteManager {
 
     // 활성 노트 업데이트 및 필터링
     this.activeNotes = this.activeNotes.filter((note) => {
-      const noteY =
-        scaledJudgementLineY -
-        ((note.timing - currentTime) / 2) * (canvasHeight / 1080); // CANVAS_HEIGHT = 1080
+      const noteY = this.scaleManager.calculateNoteY(note.timing, currentTime);
 
-      if (noteY > scaledJudgementLineY + scaledPassedLineY) {
+      if (
+        noteY >
+        this.scaleManager.scaledJudgementLineY +
+          this.scaleManager.scaledPassedLineY
+      ) {
         if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
           this.registerJudgement("MISS", note.lane);
           return false;
@@ -82,7 +81,11 @@ export class NoteManager {
         return currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
       }
 
-      return noteY <= scaledJudgementLineY + scaledPassedLineY;
+      return (
+        noteY <=
+        this.scaleManager.scaledJudgementLineY +
+          this.scaleManager.scaledPassedLineY
+      );
     });
   }
 
