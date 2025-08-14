@@ -13,6 +13,7 @@ import { EffectManager } from "./managers/EffectManager";
 import { InputManager } from "./managers/InputManager";
 import { NoteManager } from "./managers/NoteManager";
 import { ScoreManager } from "./managers/ScoreManager";
+import { UiManager } from "./managers/UiManager";
 import { LongNoteState, Note, NoteType } from "./types/note";
 
 export class GameEngine {
@@ -25,18 +26,14 @@ export class GameEngine {
   private scoreManager: ScoreManager;
   private noteManager: NoteManager;
   private effectManager: EffectManager;
+  private uiManager: UiManager;
 
   isRunning: boolean = false;
   isGameOver: boolean = false;
 
-  // 캔버스 크기에 따른 스케일 계산
-  private get scale() {
-    return this.canvas.width / CANVAS_WIDTH;
-  }
-
   // 실제 레인 너비 계산
   private get scaledLaneWidth() {
-    return LANE_WIDTH * this.scale;
+    return LANE_WIDTH * (this.canvas.width / CANVAS_WIDTH);
   }
 
   // 실제 판정선 Y 좌표 계산
@@ -48,15 +45,6 @@ export class GameEngine {
   private get scaledPassedLineY() {
     return PASSED_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
   }
-
-  // 일시정지 버튼 영역
-  private readonly PAUSE_BUTTON = {
-    x: 0,
-    y: 0,
-    width: 40,
-    height: 40,
-    margin: 20,
-  };
 
   public getScoreInfo() {
     return {
@@ -72,22 +60,7 @@ export class GameEngine {
 
   // 일시정지 버튼 클릭 체크
   public isPauseButtonClicked(x: number, y: number): boolean {
-    if (!this.isRunning) return false;
-
-    const scale = this.scale;
-    const buttonX =
-      this.canvas.width -
-      (this.PAUSE_BUTTON.width + this.PAUSE_BUTTON.margin) * scale;
-    const buttonY = this.PAUSE_BUTTON.margin * scale;
-    const buttonWidth = this.PAUSE_BUTTON.width * scale;
-    const buttonHeight = this.PAUSE_BUTTON.height * scale;
-
-    return (
-      x >= buttonX &&
-      x <= buttonX + buttonWidth &&
-      y >= buttonY &&
-      y <= buttonY + buttonHeight
-    );
+    return this.uiManager.isPauseButtonClicked(x, y, this.isRunning);
   }
 
   constructor(
@@ -114,6 +87,7 @@ export class GameEngine {
     );
 
     this.effectManager = new EffectManager(canvas, ctx, this.audioManager);
+    this.uiManager = new UiManager(canvas, ctx, this.scoreManager);
 
     this.inputManager = new InputManager(
       this,
@@ -211,49 +185,9 @@ export class GameEngine {
     }
   }
 
-  private drawPauseButton() {
-    if (!this.isRunning) return;
-
-    const scale = this.scale;
-    const { width, height, margin } = this.PAUSE_BUTTON;
-
-    // 버튼 위치 계산
-    const x = this.canvas.width - (width + margin) * scale;
-    const y = margin * scale;
-
-    // 반투명 배경
-    this.ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-    this.ctx.beginPath();
-    this.ctx.roundRect(x, y, width * scale, height * scale, 8 * scale);
-    this.ctx.fill();
-
-    // 일시정지 아이콘
-    this.ctx.fillStyle = "#ffffff";
-    const barWidth = 4 * scale;
-    const barHeight = 16 * scale;
-    const barMargin = 12 * scale;
-
-    // 왼쪽 바
-    this.ctx.fillRect(
-      x + barMargin,
-      y + (height * scale - barHeight) / 2,
-      barWidth,
-      barHeight
-    );
-
-    // 오른쪽 바
-    this.ctx.fillRect(
-      x + width * scale - barMargin - barWidth,
-      y + (height * scale - barHeight) / 2,
-      barWidth,
-      barHeight
-    );
-  }
-
   // 기존 draw 함수 수정
   private draw() {
     const ctx = this.ctx;
-    const scale = this.scale;
     const scaledLaneWidth = this.scaledLaneWidth;
     const scaledJudgementLineY = this.scaledJudgementLineY;
     const currentTime = this.audioManager.getCurrentTime();
@@ -268,19 +202,8 @@ export class GameEngine {
     this.effectManager.drawBackground();
     this.effectManager.drawLaneEffects();
 
-    // 레인 그리기 - 상태 변경 최소화
-    ctx.beginPath();
-    ctx.globalAlpha = 0.2;
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1;
-
-    // 레인 경계선 한 번에 그리기
-    for (let i = 1; i < LANE_COUNT; i++) {
-      const x = i * scaledLaneWidth;
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, this.canvas.height);
-    }
-    ctx.stroke();
+    // 레인 경계선 그리기
+    this.uiManager.drawLaneLines();
 
     // 노트 그리기 - 상태 그룹화
     ctx.shadowBlur = 0;
@@ -294,7 +217,7 @@ export class GameEngine {
       ctx.fillStyle = LANE_COLORS[note.lane];
 
       if (note.type === NoteType.SHORT) {
-        const noteHeight = 40 * scale;
+        const noteHeight = 40 * (this.canvas.width / CANVAS_WIDTH);
         ctx.fillRect(
           note.lane * scaledLaneWidth,
           y - noteHeight / 2,
@@ -323,35 +246,11 @@ export class GameEngine {
       ctx.globalAlpha = 1;
     }
 
-    // UI 요소 그리기 - 공통 상태 설정
-    ctx.globalAlpha = 1;
-    ctx.shadowBlur = 0;
-    ctx.textAlign = "left";
-    ctx.font = `${24 * scale}px Arial`;
-    ctx.fillStyle = "#ffffff";
-
-    // 점수 및 콤보 표시
-    ctx.fillText(
-      `Score: ${this.scoreManager.getScore()}`,
-      10 * scale,
-      30 * scale
-    );
-    ctx.fillText(
-      `Combo: ${this.scoreManager.getCombo()}`,
-      10 * scale,
-      60 * scale
-    );
-    ctx.fillText(
-      `Bonus: x${this.scoreManager.getComboMultiplier()}`,
-      10 * scale,
-      90 * scale
-    );
-
-    // 일시정지 버튼
-    this.drawPauseButton();
-
     // 노트 히트 이펙트와 콤보 이펙트 그리기
     this.effectManager.drawHitEffects();
+
+    // 점수/콤보/보너스 UI 그리기
+    this.uiManager.drawScore();
 
     // 마지막에 한 번만 복원
     ctx.restore();
