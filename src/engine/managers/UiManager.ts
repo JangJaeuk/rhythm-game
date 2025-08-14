@@ -1,4 +1,12 @@
-import { CANVAS_WIDTH, LANE_COUNT } from "../constants/gameBase";
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  JUDGEMENT_LINE_Y,
+  LANE_COLORS,
+  LANE_COUNT,
+  LANE_WIDTH,
+} from "../constants/gameBase";
+import { LongNoteState, Note, NoteType } from "../types/note";
 import { ScoreManager } from "./ScoreManager";
 
 export class UiManager {
@@ -46,6 +54,61 @@ export class UiManager {
     );
   }
 
+  // 노트 그리기
+  public drawNotes(notes: Note[], currentTime: number) {
+    // 상태 설정
+    this.ctx.shadowBlur = 0;
+    this.ctx.globalAlpha = 1;
+
+    // 모든 노트 그리기
+    for (const note of notes) {
+      const y =
+        this.scaledJudgementLineY -
+        ((note.timing - currentTime) / 2) *
+          (this.canvas.height / CANVAS_HEIGHT);
+
+      this.ctx.fillStyle = LANE_COLORS[note.lane];
+
+      if (note.type === NoteType.SHORT) {
+        const noteHeight = 40 * this.scale;
+        this.ctx.fillRect(
+          note.lane * this.scaledLaneWidth,
+          y - noteHeight / 2,
+          this.scaledLaneWidth,
+          noteHeight
+        );
+      } else {
+        const duration = note.duration || 0;
+        const height = (duration / 2) * (this.canvas.height / CANVAS_HEIGHT);
+
+        // 롱노트 상태에 따른 투명도 설정
+        this.ctx.globalAlpha =
+          note.longNoteState === LongNoteState.HOLDING
+            ? 1
+            : note.longNoteState === LongNoteState.MISSED
+              ? 0.3
+              : 0.8;
+
+        this.ctx.fillRect(
+          note.lane * this.scaledLaneWidth,
+          y - height,
+          this.scaledLaneWidth,
+          height
+        );
+      }
+      this.ctx.globalAlpha = 1;
+    }
+  }
+
+  // 실제 레인 너비 계산
+  private get scaledLaneWidth() {
+    return LANE_WIDTH * (this.canvas.width / CANVAS_WIDTH);
+  }
+
+  // 실제 판정선 Y 좌표 계산
+  private get scaledJudgementLineY() {
+    return JUDGEMENT_LINE_Y * (this.canvas.height / CANVAS_HEIGHT);
+  }
   // 레인 경계선 그리기
   public drawLaneLines() {
     const scaledLaneWidth = this.canvas.width / LANE_COUNT;

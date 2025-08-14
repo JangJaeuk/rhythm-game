@@ -1,11 +1,8 @@
 import {
   CANVAS_HEIGHT,
-  CANVAS_WIDTH,
   FPS,
   JUDGEMENT_LINE_Y,
-  LANE_COLORS,
   LANE_COUNT,
-  LANE_WIDTH,
   PASSED_LINE_Y,
 } from "./constants/gameBase";
 import { AudioManager } from "./managers/AudioManager";
@@ -14,7 +11,7 @@ import { InputManager } from "./managers/InputManager";
 import { NoteManager } from "./managers/NoteManager";
 import { ScoreManager } from "./managers/ScoreManager";
 import { UiManager } from "./managers/UiManager";
-import { LongNoteState, Note, NoteType } from "./types/note";
+import { Note, NoteType } from "./types/note";
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -30,11 +27,6 @@ export class GameEngine {
 
   isRunning: boolean = false;
   isGameOver: boolean = false;
-
-  // 실제 레인 너비 계산
-  private get scaledLaneWidth() {
-    return LANE_WIDTH * (this.canvas.width / CANVAS_WIDTH);
-  }
 
   // 실제 판정선 Y 좌표 계산
   private get scaledJudgementLineY() {
@@ -188,8 +180,6 @@ export class GameEngine {
   // 기존 draw 함수 수정
   private draw() {
     const ctx = this.ctx;
-    const scaledLaneWidth = this.scaledLaneWidth;
-    const scaledJudgementLineY = this.scaledJudgementLineY;
     const currentTime = this.audioManager.getCurrentTime();
 
     // 전체 상태 한 번만 저장
@@ -205,46 +195,8 @@ export class GameEngine {
     // 레인 경계선 그리기
     this.uiManager.drawLaneLines();
 
-    // 노트 그리기 - 상태 그룹화
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
-    for (const note of this.noteManager.getActiveNotes()) {
-      const y =
-        scaledJudgementLineY -
-        ((note.timing - currentTime) / 2) *
-          (this.canvas.height / CANVAS_HEIGHT);
-
-      ctx.fillStyle = LANE_COLORS[note.lane];
-
-      if (note.type === NoteType.SHORT) {
-        const noteHeight = 40 * (this.canvas.width / CANVAS_WIDTH);
-        ctx.fillRect(
-          note.lane * scaledLaneWidth,
-          y - noteHeight / 2,
-          scaledLaneWidth,
-          noteHeight
-        );
-      } else {
-        const duration = note.duration || 0;
-        const height = (duration / 2) * (this.canvas.height / CANVAS_HEIGHT);
-
-        // 롱노트 상태에 따른 투명도 설정
-        ctx.globalAlpha =
-          note.longNoteState === LongNoteState.HOLDING
-            ? 1
-            : note.longNoteState === LongNoteState.MISSED
-              ? 0.3
-              : 0.8;
-
-        ctx.fillRect(
-          note.lane * scaledLaneWidth,
-          y - height,
-          scaledLaneWidth,
-          height
-        );
-      }
-      ctx.globalAlpha = 1;
-    }
+    // 노트 그리기
+    this.uiManager.drawNotes(this.noteManager.getActiveNotes(), currentTime);
 
     // 노트 히트 이펙트와 콤보 이펙트 그리기
     this.effectManager.drawHitEffects();
