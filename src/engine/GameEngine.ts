@@ -1,4 +1,4 @@
-import { FPS, LANE_COUNT } from "./constants/gameBase";
+import { LANE_COUNT } from "./constants/gameBase";
 import { AudioManager } from "./managers/AudioManager";
 import { EffectManager } from "./managers/EffectManager";
 import { GameScaleManager } from "./managers/GameScaleManager";
@@ -212,20 +212,14 @@ export class GameEngine {
   private update(timestamp: number) {
     if (!this.isRunning && !this.isGameOver) return;
 
-    const frameInterval = 1000 / FPS;
-    const deltaTime = timestamp - this.lastTimestamp;
-
-    if (deltaTime < frameInterval) {
-      requestAnimationFrame(this.update.bind(this));
-      return;
-    }
-
+    // deltaTime 계산 (초 단위로 변환)
+    const deltaTime = (timestamp - this.lastTimestamp) / 1000;
     this.lastTimestamp = timestamp;
 
     const currentTime = this.audioManager.getCurrentTime();
 
     // 이펙트 매니저는 게임 오버 상태에서도 업데이트 (배경 효과 유지)
-    this.effectManager.update(timestamp);
+    this.effectManager.update(deltaTime, timestamp);
 
     // 게임 오버가 아닐 때만 게임 로직 실행
     if (!this.isGameOver) {

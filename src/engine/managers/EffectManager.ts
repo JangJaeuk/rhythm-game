@@ -266,9 +266,9 @@ export class EffectManager {
     this.drawJudgement();
   }
 
-  public update(timestamp: number) {
+  public update(deltaTime: number, timestamp: number) {
     this.updateLaneEffects(timestamp);
-    this.updateBackgroundParticles();
+    this.updateBackgroundParticles(deltaTime);
   }
 
   private drawJudgement() {
@@ -357,6 +357,7 @@ export class EffectManager {
 
   private updateNoteHitEffects() {
     const now = performance.now();
+    const deltaTime = 1 / 60; // 60fps 기준으로 정규화
     let writeIndex = 0;
 
     for (let i = 0; i < this.noteHitEffects.length; i++) {
@@ -370,13 +371,13 @@ export class EffectManager {
         for (let j = 0; j < effect.particles.length; j++) {
           const particle = effect.particles[j];
 
-          particle.x += particle.dx * 0.1;
-          particle.y += particle.dy * 0.1;
-          particle.dy += 0.2;
-          particle.size *= 0.95;
-          particle.dx *= 0.95;
-          particle.dy *= 0.95;
-          particle.life *= 0.95;
+          particle.x += particle.dx * deltaTime * 6;
+          particle.y += particle.dy * deltaTime * 6;
+          particle.dy += 0.2 * deltaTime * 60;
+          particle.size *= Math.pow(0.95, deltaTime * 60);
+          particle.dx *= Math.pow(0.95, deltaTime * 60);
+          particle.dy *= Math.pow(0.95, deltaTime * 60);
+          particle.life *= Math.pow(0.95, deltaTime * 60);
 
           if (particle.life > 0.1) {
             if (particleWriteIndex !== j) {
@@ -419,8 +420,9 @@ export class EffectManager {
       const age = now - effect.timestamp;
 
       if (age <= 400) {
-        effect.scale = 1.5 - (age / 400) * 0.3;
-        effect.alpha = Math.max(0, 1 - age / 400);
+        const progress = Math.min(1, age / 400);
+        effect.scale = 1.5 - progress * 0.3;
+        effect.alpha = Math.max(0, 1 - progress);
 
         if (effect.alpha > 0) {
           if (writeIndex !== i) {
@@ -434,7 +436,7 @@ export class EffectManager {
     this.comboEffects.length = writeIndex;
   }
 
-  private updateBackgroundParticles() {
+  private updateBackgroundParticles(deltaTime: number) {
     if (this.particles.length === 0) {
       this.initializeParticles();
       return;
@@ -449,7 +451,7 @@ export class EffectManager {
 
     for (let i = 0; i < this.particles.length; i++) {
       const particle = this.particles[i];
-      particle.y -= particle.speed * (1 + intensity);
+      particle.y -= particle.speed * (1 + intensity) * deltaTime * 60; // 60fps 기준으로 정규화
 
       if (particle.y < 0) {
         particle.y = this.canvas.height;
