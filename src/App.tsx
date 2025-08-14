@@ -1,4 +1,4 @@
-import Game from "./components/Game.tsx";
+import Game from "./components/game/Game.tsx";
 
 function App() {
   return <Game />;
