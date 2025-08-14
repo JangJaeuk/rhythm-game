@@ -1,5 +1,6 @@
-import { RefObject, useEffect } from "react";
+import { RefObject } from "react";
 import { GameEngine } from "../../engine/GameEngine";
+import { useEventHandler } from "../core/useEventHandler";
 
 interface UseGameEventsProps {
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -20,22 +21,33 @@ export function useGameEvents({
   resumeGame,
   setShowHowToPlay,
 }: UseGameEventsProps) {
-  // 키보드 이벤트 핸들러
-  useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isPlaying) {
-        pauseGame();
-      } else if (e.key === "Escape" && isPaused) {
-        setShowHowToPlay(false);
-        await resumeGame();
-      }
-    };
+  useEventHandler({
+    keyboardHandlers: [
+      {
+        key: "Escape",
+        handler: async () => {
+          if (isPlaying) {
+            pauseGame();
+          } else if (isPaused) {
+            setShowHowToPlay(false);
+            await resumeGame();
+          }
+        },
+      },
+    ],
+    clickHandler: gameEngine
+      ? {
+          element: canvasRef,
+          handler: (x, y) => {
+            if (isPlaying && gameEngine.isPauseButtonClicked(x, y)) {
+              pauseGame();
+            }
+          },
+        }
+      : undefined,
+  });
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPlaying, isPaused, pauseGame, resumeGame, setShowHowToPlay]);
-
-  // 마우스 클릭 핸들러
+  // React의 이벤트 시스템을 위한 핸들러
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || !gameEngine) return;
 
@@ -43,7 +55,6 @@ export function useGameEvents({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // 일시정지 버튼 클릭 체크
     if (isPlaying && gameEngine.isPauseButtonClicked(x, y)) {
       pauseGame();
     }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useModal } from "../core/useModal";
 
 interface UseGameUIProps {
   exitGame: () => void;
@@ -6,11 +6,7 @@ interface UseGameUIProps {
 }
 
 export function useGameUI({ exitGame, saveScore }: UseGameUIProps) {
-  const [showHowToPlay, setShowHowToPlay] = useState(false);
-
-  const handleHowToPlay = () => {
-    setShowHowToPlay(true);
-  };
+  const howToPlayModal = useModal(false);
 
   const handleSaveScore = (selectedMusicId: string | null) => {
     if (!selectedMusicId) return;
@@ -22,9 +18,9 @@ export function useGameUI({ exitGame, saveScore }: UseGameUIProps) {
   };
 
   return {
-    showHowToPlay,
-    setShowHowToPlay,
-    handleHowToPlay,
+    showHowToPlay: howToPlayModal.isOpen,
+    setShowHowToPlay: howToPlayModal.setIsOpen,
+    handleHowToPlay: howToPlayModal.open,
     handleSaveScore,
     handleExit,
   };

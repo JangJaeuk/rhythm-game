@@ -1,19 +1,12 @@
-import { useState } from "react";
+import { useCountdown } from "../core/useCountdown";
 
 export function useGameCountdown() {
-  const [countdown, setCountdown] = useState<number | null>(null);
-
-  // 카운트다운과 초기화를 병렬로 처리
-  const countdownPromise = async () => {
-    setCountdown(3);
-    for (let i = 2; i >= 0; i--) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setCountdown(i);
-    }
-  };
+  const { count, startCountdown } = useCountdown({
+    startFrom: 3,
+  });
 
   return {
-    countdown,
-    countdownPromise,
+    countdown: count,
+    countdownPromise: startCountdown,
   };
 }
