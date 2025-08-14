@@ -2,21 +2,15 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   FPS,
-  GOOD_RANGE,
-  INTERVAL_IN_LONG_NOTE_ACTIVE,
   JUDGEMENT_LINE_Y,
-  JUDGEMENT_RANGE,
   LANE_COLORS,
   LANE_COUNT,
   LANE_WIDTH,
-  NORMAL_RANGE,
   PASSED_LINE_Y,
-  PERFECT_RANGE,
-  SAFE_TIME_IN_LONG_NOTE_ACTIVE,
-  TIME_CONSIDERING_PASSED,
 } from "./constants/gameBase";
 import { AudioManager } from "./managers/AudioManager";
 import { InputManager } from "./managers/InputManager";
+import { NoteManager } from "./managers/NoteManager";
 import { ScoreManager } from "./managers/ScoreManager";
 import { LaneBackgroundEffect, LaneEffect } from "./types/effect";
 import { Judgment } from "./types/judgment";
@@ -51,14 +45,10 @@ interface Effect {
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private notes: Note[] = [];
-  private activeNotes: Note[] = [];
   private startTime: number = 0;
   private lastTimestamp: number = 0;
   private currentJudgment: Judgment | null = null;
   private judgmentDisplayTime: number = 0;
-  private lastLongNoteUpdate: { [key: number]: number } = {};
-  private lastHitLane: number = 0;
   private laneEffects: LaneEffect[] = Array(LANE_COUNT)
     .fill(null)
     .map(() => ({
@@ -76,6 +66,7 @@ export class GameEngine {
   private audioManager: AudioManager;
   private inputManager: InputManager;
   private scoreManager: ScoreManager;
+  private noteManager: NoteManager;
 
   isRunning: boolean = false;
   isGameOver: boolean = false;
@@ -156,22 +147,23 @@ export class GameEngine {
       onGameOver();
     });
 
+    this.scoreManager = new ScoreManager();
+
+    this.noteManager = new NoteManager(
+      this.audioManager,
+      this.scoreManager,
+      this.handleNoteJudgement.bind(this)
+    );
+
     this.inputManager = new InputManager(
       this,
       this.handleKeyPress.bind(this),
       this.handleKeyRelease.bind(this)
     );
-
-    this.scoreManager = new ScoreManager();
   }
 
   public setNotes(notes: Note[]) {
-    const adjustedNotes = notes.map((note) => ({
-      ...note,
-      timing: note.timing + AudioManager.latency,
-    }));
-
-    this.notes = [...adjustedNotes].sort((a, b) => a.timing - b.timing);
+    this.noteManager.setNotes(notes);
   }
 
   public start() {
@@ -216,139 +208,29 @@ export class GameEngine {
   }
 
   private reset() {
-    this.notes = [];
-    this.activeNotes = [];
     this.currentJudgment = null;
-
     this.scoreManager.reset();
+    this.noteManager.reset();
   }
 
   private handleKeyPress(lane: number) {
-    this.lastHitLane = lane;
-    // 레인 백그라운드
     this.activateLaneBackgroundEffect(lane);
+    const closestNote = this.noteManager.handleKeyPress(lane);
 
-    const currentTime = this.audioManager.getCurrentTime();
-
-    // 해당 레인의 판정 가능한 노트들 찾기
-    const notesInLane = this.activeNotes.filter((note) => note.lane === lane);
-
-    // 판정 범위 내의 노트들 중 가장 가까운 노트 찾기
-    let closestNote: Note | null = null;
-    let minTimeDiff = Infinity;
-
-    for (const note of notesInLane) {
-      const timeDiff = note.timing - currentTime;
-
-      // 판정 범위 안에 있는 노트 중에서
-      if (this.getIsJudgementRange(timeDiff)) {
-        // 가장 가까운 노트 찾기
-        const absTimeDiff = Math.abs(timeDiff);
-        if (absTimeDiff < Math.abs(minTimeDiff)) {
-          minTimeDiff = timeDiff;
-          closestNote = note;
-        }
-      }
-    }
-
-    // 가장 가까운 노트 판정
-    if (closestNote) {
-      if (closestNote.type === NoteType.SHORT) {
-        // 판정
-        this.judgeNote(minTimeDiff);
-        // 판정이 노멀 이상이면 액티브 효과 주기
-        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
-          this.activateLaneEffect(lane);
-        }
-        // 액티브 노트 목록에서 제거
-        this.activeNotes = this.activeNotes.filter((n) => n !== closestNote);
-      }
-      // 긴 노트이면서 아직 안 눌렀을 때
-      else if (closestNote.type === NoteType.LONG && !closestNote.isHeld) {
-        // 판정
-        this.judgeNote(minTimeDiff);
-        // 판정이 노멀 이상인 경우
-        if (this.getIsEffectiveNodeRange(minTimeDiff)) {
-          // 현재 콤보 저장
-          closestNote.startCombo = this.scoreManager.getCombo();
-          // 액티브 효과 주기
-          this.activateLaneEffect(lane, true);
-          // 누른 상태로 변경
-          closestNote.isHeld = true;
-          closestNote.longNoteState = LongNoteState.HOLDING;
-
-          // 시작 시점을 노트의 정확한 타이밍으로 설정
-          this.lastLongNoteUpdate[closestNote.lane] = closestNote.timing;
-        }
-      }
+    // 판정이 노멀 이상이면서 숏노트거나, 롱노트의 시작점일 때 레인 이펙트 활성화
+    if (
+      closestNote &&
+      (closestNote.type === NoteType.SHORT ||
+        (closestNote.type === NoteType.LONG && !closestNote.isHeld))
+    ) {
+      this.activateLaneEffect(lane, closestNote.type === NoteType.LONG);
     }
   }
 
   private handleKeyRelease(lane: number) {
-    // 오디오 시간 기준으로 현재 시간 계산
-    const currentTime = this.audioManager.getCurrentTime();
-
-    const notesInLane = this.activeNotes.filter(
-      (note) =>
-        note.lane === lane &&
-        note.type === NoteType.LONG &&
-        note.isHeld &&
-        note.longNoteState === LongNoteState.HOLDING
-    );
-
     this.deactivateLaneBackgroundEffect(lane);
-
-    for (const note of notesInLane) {
-      const noteEndTime = note.timing + (note.duration || 0);
-      const timeDiff = noteEndTime - currentTime;
-
-      this.deactivateLaneEffect(lane);
-
-      // 놔야할 때가 아직 오지 않았는데 놓은 경우
-      if (currentTime < noteEndTime - NORMAL_RANGE) {
-        this.registerMiss();
-        note.longNoteState = LongNoteState.MISSED;
-      }
-      // 놔야할 타이밍이 온 경우
-      else if (this.getIsEffectiveNodeRange(timeDiff)) {
-        this.judgeNote(timeDiff);
-        note.longNoteState = LongNoteState.COMPLETED;
-
-        // 롱노트로 얻어야 할 총 콤보 수 계산
-        const expectedComboGain =
-          Math.ceil((note.duration || 0) / INTERVAL_IN_LONG_NOTE_ACTIVE) - 1;
-        // 실제로 얻은 콤보 수 계산
-        const actualComboGain =
-          this.scoreManager.getCombo() - (note.startCombo || 0);
-
-        // 콤보 수가 부족하면 보정
-        if (actualComboGain < expectedComboGain) {
-          const missingCombos = expectedComboGain - actualComboGain;
-
-          for (let i = 0; i < missingCombos; i++) {
-            // 판정 범위에 따라 다른 판정 적용
-            if (Math.abs(timeDiff) <= PERFECT_RANGE) {
-              this.registerPerfect();
-            } else if (Math.abs(timeDiff) <= GOOD_RANGE) {
-              this.registerGood();
-            } else {
-              this.registerNormal();
-            }
-          }
-        }
-      }
-      note.isHeld = false;
-    }
-  }
-
-  private getIsEffectiveNodeRange(timeDiff: number) {
-    return timeDiff + TIME_CONSIDERING_PASSED >= 0 && timeDiff <= NORMAL_RANGE;
-  }
-
-  private getIsJudgementRange(timeDiff: number) {
-    return (
-      timeDiff + TIME_CONSIDERING_PASSED >= 0 && timeDiff <= JUDGEMENT_RANGE
-    );
+    this.deactivateLaneEffect(lane);
+    this.noteManager.handleKeyRelease(lane);
   }
 
   private noteHitEffects: Array<{
@@ -554,72 +436,30 @@ export class GameEngine {
     });
   }
 
-  private judgeNote(timeDiff: number) {
-    let judgment: "PERFECT" | "GOOD" | "NORMAL" | null = null;
+  private handleNoteJudgement(judgement: {
+    type: "PERFECT" | "GOOD" | "NORMAL" | "MISS";
+    lane: number;
+  }) {
+    this.currentJudgment = {
+      text: judgement.type,
+      color:
+        judgement.type === "PERFECT"
+          ? "#ffd700"
+          : judgement.type === "GOOD"
+            ? "#00ff00"
+            : judgement.type === "NORMAL"
+              ? "#4488ff"
+              : "#ff0000",
+    };
+    this.judgmentDisplayTime = performance.now();
 
-    if (timeDiff >= 0) {
-      if (timeDiff <= PERFECT_RANGE) {
-        this.registerPerfect();
-        judgment = "PERFECT";
-      } else if (timeDiff <= GOOD_RANGE) {
-        this.registerGood();
-        judgment = "GOOD";
-      } else if (timeDiff <= NORMAL_RANGE) {
-        this.registerNormal();
-        judgment = "NORMAL";
-      } else {
-        this.registerMiss();
+    if (judgement.type !== "MISS") {
+      this.createNoteHitEffect(judgement.lane, judgement.type);
+      this.createComboEffect();
+      if (judgement.type !== "NORMAL") {
+        this.activateLaneEffect(judgement.lane);
       }
-    } else if (timeDiff < 0 && timeDiff + TIME_CONSIDERING_PASSED >= 0) {
-      this.registerPerfect();
-      judgment = "PERFECT";
     }
-
-    // 판정에 따른 이펙트 생성
-    if (judgment) {
-      this.createNoteHitEffect(this.lastHitLane, judgment);
-    }
-  }
-
-  private updateLongNotes(currentTime: number) {
-    this.activeNotes.forEach((note) => {
-      if (
-        note.type === NoteType.LONG &&
-        note.isHeld &&
-        note.longNoteState === LongNoteState.HOLDING
-      ) {
-        const lastUpdate = this.lastLongNoteUpdate[note.lane] || 0;
-        const noteEndTime = note.timing + (note.duration ?? 0);
-
-        // 마지막 업데이트 이후 경과한 간격 수 계산
-        const intervalsPassed = Math.floor(
-          (currentTime - lastUpdate) / INTERVAL_IN_LONG_NOTE_ACTIVE
-        );
-
-        // 경과한 각 간격을 반복 처리
-        for (let i = 0; i < intervalsPassed; i++) {
-          const intervalTime =
-            lastUpdate + (i + 1) * INTERVAL_IN_LONG_NOTE_ACTIVE;
-
-          // 간격 시간이 유효한 범위 내에 있는지 확인
-          if (
-            intervalTime >= note.timing &&
-            intervalTime <=
-              noteEndTime - NORMAL_RANGE + SAFE_TIME_IN_LONG_NOTE_ACTIVE
-          ) {
-            this.registerPerfect();
-            this.lastLongNoteUpdate[note.lane] = intervalTime;
-          }
-        }
-
-        // 노트가 끝난 후에도 누르고 있는 경우 처리
-        if (currentTime - TIME_CONSIDERING_PASSED > noteEndTime) {
-          this.registerMiss();
-          note.longNoteState = LongNoteState.MISSED;
-          this.deactivateLaneEffect(note.lane);
-        }
-      }
-    });
   }
 
   private comboEffects: Array<{
@@ -725,37 +565,6 @@ export class GameEngine {
     this.ctx.fillText(`${effect.combo} COMBO!`, effect.x, effect.y);
 
     this.ctx.restore();
-  }
-
-  private registerPerfect() {
-    this.scoreManager.registerPerfect();
-
-    this.createComboEffect();
-    this.currentJudgment = { text: "PERFECT", color: "#ffd700" };
-    this.judgmentDisplayTime = performance.now();
-  }
-
-  private registerGood() {
-    this.scoreManager.registerGood();
-
-    this.createComboEffect();
-    this.currentJudgment = { text: "GOOD", color: "#00ff00" };
-    this.judgmentDisplayTime = performance.now();
-  }
-
-  private registerNormal() {
-    this.scoreManager.registerNormal();
-
-    this.createComboEffect();
-    this.currentJudgment = { text: "NORMAL", color: "#4488ff" };
-    this.judgmentDisplayTime = performance.now();
-  }
-
-  private registerMiss() {
-    this.scoreManager.registerMiss();
-
-    this.currentJudgment = { text: "MISS", color: "#ff0000" };
-    this.judgmentDisplayTime = performance.now();
   }
 
   private activateLaneEffect(lane: number, isLongNote: boolean = false) {
@@ -1123,7 +932,8 @@ export class GameEngine {
 
     // 노트 그리기 - 상태 그룹화
     ctx.shadowBlur = 0;
-    for (const note of this.activeNotes) {
+    ctx.globalAlpha = 1;
+    for (const note of this.noteManager.getActiveNotes()) {
       const y =
         scaledJudgementLineY -
         ((note.timing - currentTime) / 2) *
@@ -1158,6 +968,7 @@ export class GameEngine {
           height
         );
       }
+      ctx.globalAlpha = 1;
     }
 
     // UI 요소 그리기 - 공통 상태 설정
@@ -1226,44 +1037,17 @@ export class GameEngine {
     this.lastTimestamp = timestamp;
 
     // 게임 오버가 아닐 때만 게임 로직 실행
-    // 오디오 시간 기준으로 게임 시간 계산
     if (!this.isGameOver) {
       const currentTime = this.audioManager.getCurrentTime();
 
       this.updateLaneEffects(timestamp);
-      this.updateLongNotes(currentTime);
-
-      while (
-        this.notes.length > 0 &&
-        this.notes[0].timing <= currentTime + 2000
-      ) {
-        const note = this.notes.shift()!;
-        if (note.type === NoteType.LONG) {
-          note.longNoteState = LongNoteState.WAITING;
-        }
-        this.activeNotes.push(note);
-      }
-
-      this.activeNotes = this.activeNotes.filter((note) => {
-        const noteY =
-          this.scaledJudgementLineY -
-          ((note.timing - currentTime) / 2) *
-            (this.canvas.height / CANVAS_HEIGHT);
-
-        if (noteY > this.scaledJudgementLineY + this.scaledPassedLineY) {
-          if (!note.isHeld && note.longNoteState !== LongNoteState.COMPLETED) {
-            this.registerMiss();
-            return false;
-          }
-        }
-
-        if (note.type === NoteType.LONG) {
-          const noteEndTime = note.timing + (note.duration || 0);
-          return currentTime <= noteEndTime + TIME_CONSIDERING_PASSED;
-        }
-
-        return noteY <= this.scaledJudgementLineY + this.scaledPassedLineY;
-      });
+      this.noteManager.updateLongNotes(currentTime);
+      this.noteManager.updateNotes(
+        currentTime,
+        this.scaledJudgementLineY,
+        this.scaledPassedLineY,
+        this.canvas.height
+      );
     }
 
     this.draw();
