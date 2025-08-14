@@ -17,7 +17,10 @@ interface UseGameScoreReturn extends GameScoreState {
   setPlayerName: (name: string) => void;
   updateScore: (newScore: number) => void;
   updateCombo: (combo: number) => void;
-  updateCounts: (type: "perfect" | "good" | "normal" | "miss") => void;
+  updateCounts: (
+    type: "perfect" | "good" | "normal" | "miss",
+    count: number
+  ) => void;
   saveScore: (musicId: string, onSave?: () => void) => void;
   resetScore: () => void;
 }
@@ -46,10 +49,13 @@ export function useGameScore(): UseGameScoreReturn {
     }));
   };
 
-  const updateCounts = (type: "perfect" | "good" | "normal" | "miss") => {
+  const updateCounts = (
+    type: "perfect" | "good" | "normal" | "miss",
+    count: number = 1
+  ) => {
     setScoreState((prev) => ({
       ...prev,
-      [`${type}Count`]: prev[`${type}Count`] + 1,
+      [`${type}Count`]: count,
     }));
   };
 

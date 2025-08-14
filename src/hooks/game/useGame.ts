@@ -22,11 +22,12 @@ export function useGame({ canvasRef, audioRef }: UseGameProps) {
     const scoreInfo = gameEngine.current.getScoreInfo();
     gameScore.updateScore(scoreInfo.score);
     gameScore.updateCombo(scoreInfo.maxCombo);
-    // Update counts
-    gameScore.updateCounts("perfect");
-    gameScore.updateCounts("good");
-    gameScore.updateCounts("normal");
-    gameScore.updateCounts("miss");
+
+    // 각 판정 카운트를 실제 값으로 한 번에 업데이트
+    gameScore.updateCounts("perfect", scoreInfo.perfectCount);
+    gameScore.updateCounts("good", scoreInfo.goodCount);
+    gameScore.updateCounts("normal", scoreInfo.normalCount);
+    gameScore.updateCounts("miss", scoreInfo.missCount);
 
     gameState.endGame();
   }, [gameScore, gameState]);
