@@ -5,6 +5,9 @@ import {
   PERFECT_SCORE,
 } from "../constants/gameBase";
 
+/**
+ * 게임의 점수 시스템을 관리하는 매니저
+ */
 export class ScoreManager {
   private score: number = 0;
   private combo: number = 0;

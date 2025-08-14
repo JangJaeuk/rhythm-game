@@ -17,6 +17,9 @@ export interface NoteJudgement {
   lane: number;
 }
 
+/**
+ * 게임의 노트 상태와 판정을 관리하는 매니저
+ */
 export class NoteManager {
   private notes: Note[] = [];
   private activeNotes: Note[] = [];

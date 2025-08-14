@@ -1,5 +1,8 @@
 import { GameEngine } from "../GameEngine";
 
+/**
+ * 게임의 키보드 입력을 관리하는 매니저
+ */
 export class InputManager {
   private static readonly KEY_MAP: { [key: string]: number } = {
     KeyD: 0,

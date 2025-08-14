@@ -1,5 +1,8 @@
 import { measureAudioLatency } from "../utils/audio";
 
+/**
+ * 게임의 오디오와 비주얼라이저를 관리하는 매니저
+ */
 export class AudioManager {
   static analyser?: AnalyserNode;
   static latency: number = 0;
@@ -39,7 +42,7 @@ export class AudioManager {
   getCurrentTime() {
     const currentAudioTime =
       (this.audio?.currentTime || 0) - this.audioStartTime;
-    return currentAudioTime * 1000; // 초를 밀리초로 변환
+    return currentAudioTime * 1000;
   }
 
   processFrequencyData(data: Uint8Array, targetLength: number): number[] {
@@ -69,7 +72,7 @@ export class AudioManager {
 
     // 비트와 멜로디 조합
     const currentIntensity = Math.max(
-      bassEnergy * 1.2, // 비트에 가중치
+      bassEnergy * 1.2,
       maxValue * 0.7 + melodyAvg * 0.3
     );
 
@@ -99,7 +102,7 @@ export class AudioManager {
     const normalizedIntensity = currentIntensity / (this.maxIntensity || 1);
 
     // 변화량에 따른 증폭 및 진동 효과
-    const oscillation = Math.sin(Date.now() / 50) * 0.1; // 미세한 진동 추가
+    const oscillation = Math.sin(Date.now() / 50) * 0.1;
     const amplificationFactor = 0.7 + variability / 50 + oscillation;
 
     // 최종 강도 계산 (더 부드러운 곡선)

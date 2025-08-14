@@ -44,6 +44,9 @@ interface JudgementEffect {
   timestamp: number;
 }
 
+/**
+ * 게임의 시각적 효과(이펙트, 배경 등)를 관리하는 매니저
+ */
 export class EffectManager {
   private static readonly EFFECT_PARTICLE_POOL_SIZE = 200;
   private static readonly BACKGROUND_PARTICLE_POOL_SIZE = 50;

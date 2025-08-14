@@ -3,6 +3,9 @@ import { LongNoteState, Note, NoteType } from "../types/note";
 import { GameScaleManager } from "./GameScaleManager";
 import { ScoreManager } from "./ScoreManager";
 
+/**
+ * 게임의 UI 요소(점수, 노트, 레인, 버튼)를 관리하는 매니저
+ */
 export class UiManager {
   // 일시정지 버튼 영역
   private readonly PAUSE_BUTTON = {
