@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../engine/constants/gameBase";
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../../engine/constants/gameBase";
 
 export function useGameCanvasSize() {
   const containerRef = useRef<HTMLDivElement>(null);

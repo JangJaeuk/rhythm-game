@@ -4,7 +4,7 @@ import {
   getFormattedDifficulty,
   getFormattedTime,
 } from "../../engine/utils/format";
-import { useGameScore } from "../../hooks/useGameScore";
+import { useGameScore } from "../../hooks/game/useGameScore";
 import { LeaderboardModal } from "../modals/LeaderboardModal";
 import s from "./musicList.module.scss";
 

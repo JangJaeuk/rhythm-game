@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { MUSIC_LIST } from "../constants/music";
 import { AudioManager } from "../engine/managers/AudioManager";
-import { useBrowserCheck } from "../hooks/useBrowserCheck";
-import { useGame } from "../hooks/useGame";
-import { useGameAudio } from "../hooks/useGameAudio";
-import { useGameCanvasSize } from "../hooks/useGameCanvasSize";
-import { useGameCountdown } from "../hooks/useGameCountdown";
-import { useGameScore } from "../hooks/useGameScore";
+import { useBrowserCheck } from "../hooks/browser/useBrowserCheck";
+import { useGame } from "../hooks/game/useGame";
+import { useGameCanvasSize } from "../hooks/game/useGameCanvasSize";
+import { useGameCountdown } from "../hooks/game/useGameCountdown";
 import s from "./game.module.scss";
 import { BrowserCheckModal } from "./modals/BrowserCheckModal";
 import { GameOverModal } from "./modals/GameOverModal";
@@ -22,58 +20,63 @@ function Game() {
   const [selectedMusicId, setSelectedMusicId] = useState<string | null>(null);
 
   const { containerRef, canvasSize } = useGameCanvasSize();
-  const { playerName, setPlayerName, saveScore } = useGameScore();
   const { countdown, countdownPromise } = useGameCountdown();
-  const { waitForAudioStart, playAudio, pauseAudio, resetAudio, loadAudio } =
-    useGameAudio(audioRef);
-
   const isSupportedBrowser = useBrowserCheck();
 
   const {
+    // 게임 상태 관련
+    state,
+    isPlaying,
+    isPaused,
     startGame,
     pauseGame,
     resumeGame,
     exitGame,
     startCountdown,
-    gameState,
-    isPaused,
-    maxCombo,
+
+    // 점수 관련
     score,
+    maxCombo,
     perfectCount,
     goodCount,
     normalCount,
     missCount,
+    playerName,
+    setPlayerName,
+    saveScore,
+
+    // 게임 엔진
     gameEngine,
-  } = useGame(canvasRef, audioRef);
+  } = useGame({
+    canvasRef,
+    audioRef,
+  });
 
   // 키보드 이벤트 핸들러
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
-      if (e.key === "Escape" && gameState === "playing") {
-        pauseAudio();
+      if (e.key === "Escape" && isPlaying) {
         pauseGame();
-      } else if (e.key === "Escape" && gameState === "paused") {
+      } else if (e.key === "Escape" && isPaused) {
         setShowHowToPlay(false);
-        await playAudio();
-        resumeGame();
+        await resumeGame();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [gameState, pauseGame, resumeGame, pauseAudio, playAudio]);
+  }, [isPlaying, isPaused, pauseGame, resumeGame]);
 
   // 마우스 클릭 핸들러
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !gameState || !gameEngine) return;
+    if (!canvasRef.current || !gameEngine) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
     // 일시정지 버튼 클릭 체크
-    if (gameState === "playing" && gameEngine.isPauseButtonClicked(x, y)) {
-      pauseAudio();
+    if (isPlaying && gameEngine.isPauseButtonClicked(x, y)) {
       pauseGame();
     }
   };
@@ -86,7 +89,7 @@ function Game() {
     setCanvasKey((prev) => prev + 1);
 
     // 오디오 로드
-    loadAudio();
+    audioRef.current.load();
 
     startCountdown();
 
@@ -95,30 +98,22 @@ function Game() {
     // 둘 다 완료될 때까지 대기
     await Promise.all([countdownPromise(), initPromise]);
 
-    // 이제 오디오 재생하고 게임 시작
-    await playAudio();
-    await waitForAudioStart();
-    startGame(musicId);
+    // 이제 게임 시작
+    await startGame(musicId);
   };
 
   const handleHowToPlay = () => {
     setShowHowToPlay(true);
   };
 
-  const handleResume = async () => {
-    await playAudio();
-    resumeGame();
+  const handleSaveScore = () => {
+    if (!selectedMusicId) return;
+    saveScore(selectedMusicId, handleExit);
   };
 
   const handleExit = () => {
-    resetAudio();
     exitGame();
     setSelectedMusicId(null);
-  };
-
-  const handleSaveScore = () => {
-    if (!selectedMusicId) return;
-    saveScore(score, selectedMusicId, handleExit);
   };
 
   if (!isSupportedBrowser) {
@@ -140,13 +135,11 @@ function Game() {
         onClick={handleCanvasClick}
       />
 
-      {gameState === "idle" && <MusicList onSelectMusic={handleMusicSelect} />}
+      {state === "idle" && <MusicList onSelectMusic={handleMusicSelect} />}
 
-      {countdown && gameState === "countdown" && (
-        <div className={s.countdown}>{countdown}</div>
-      )}
+      {state === "countdown" && <div className={s.countdown}>{countdown}</div>}
 
-      {gameState === "ended" && (
+      {state === "ended" && (
         <GameOverModal
           score={score}
           maxCombo={maxCombo}
@@ -163,7 +156,7 @@ function Game() {
 
       <PauseModal
         isActive={isPaused}
-        onResume={handleResume}
+        onResume={resumeGame}
         onExit={handleExit}
         onHowToPlay={handleHowToPlay}
       />
@@ -185,4 +178,5 @@ function Game() {
     </div>
   );
 }
+
 export default Game;
